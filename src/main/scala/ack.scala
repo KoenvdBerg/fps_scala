@@ -1,6 +1,9 @@
 @main def main_ack(): Unit =
   println("ksdjfkl")
-//  println(ack(4,1).compute)
+
+  val tmp = ack(1, 4)
+  println(tmp)
+
   println(even((1 to 10001).toList).compute)
 
 //  val x = Pure(10).compute  ---> 10
