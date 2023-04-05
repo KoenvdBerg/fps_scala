@@ -53,13 +53,6 @@ object L {
       case Cons(h,t) => Cons(h, append(t, a2))
 
   // 3.6
-  def init1[A](l: List[A]): List[A] =
-    def go(las: List[A], acc: List[A]): List[A] =
-      las match
-        case Nil => acc
-        case Cons(a, as) => go(as, Cons(a, as))
-    go(l, Nil)
-
   def init[A](l: List[A]): List[A] =
     l match
       case Cons(_, Nil) => Nil
@@ -76,11 +69,11 @@ object L {
       case Nil => z
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
 
-  def sum2(ns: List[Int]) =
-    foldRight(ns, 0)((x,y) => x + y)
-
-  def product2(ns: List[Double]) =
-    foldRight(ns, 1.0)(_ * _)
+//  def sum2(ns: List[Int]) =
+//    foldRight(ns, 0)((x,y) => x + y)
+//
+//  def product2(ns: List[Double]) =
+//    foldRight(ns, 1.0)(_ * _)
 
   // 3.7
   // No it's not possible because foldright is not tail-recursive and thus no sudden stop can be accomplished without
@@ -100,8 +93,8 @@ object L {
   // 1 + foldRight(Cons(2, Cons(3, Nil))), 0)((_, y) => 1 + y)
   // 1 + 1 + foldRight(Cons(3, Nil))), 0)((_, y) => 1 + y)
   // 1 + 1 + 1 + 0
-  def length[A](as: List[A]): Int =
-    foldRight(as, 0)((_, y) => 1 + y)
+//  def length[A](as: List[A]): Int =
+//    foldRight(as, 0)((_, y) => 1 + y)
 
   //  scala > val x = L.List("foo", "bar", "bac", "baz", "foobar", "joost")
   //  val x: L.List[String] = Cons(foo, Cons(bar, Cons(bac, Cons(baz, Cons(foobar, Cons(joost, Nil))))))
@@ -113,6 +106,43 @@ object L {
   def foldLeft[A, B](as: List[A], z: B)(f: (B, A) => B): B = as match
     case Cons(x, xs) => foldLeft(xs, f(z, x))(f)
     case Nil => z
+
+  // 3.11
+  def sum2(ns: List[Int]): Int =
+    foldLeft(ns, 0)((x,y) => x + y)
+
+  def product2(ns: List[Int]): Int =
+    foldLeft(ns, 1)((x, y) => x * y)
+
+  def length[A](as: List[A]): Int =
+    foldLeft(as, 0)((x, _) => x + 1)
+
+  // 3.12
+  // foldLeft(Cons(1, Cons(2, Cons(3, Nil))), 0)((_, y) => 1 + y)
+  // foldLeft(Cons(2, Cons(3, Nil))), 0 + 1)((_, y) => 1 + y)
+  // foldLeft(Cons(3, Nil))), 0 + 1 + 1)((_, y) => 1 + y)
+  // foldLeft(0 + 1 + 1 + 1)
+  // 3
+
+  // foldLeft(Cons(1, Cons(2, Cons(3, Nil))), Nil)((x, y) => Cons(y, x))
+  // foldLeft(Cons(1, Cons(2, Cons(3, Nil))), Cons(1, Nil))((x, y) => Cons(y, x))
+
+
+  def reverse[A](as: List[A]): List[A] =
+    foldLeft[A, List[A]](as, Nil)((y, x) =>
+      Cons(x, y)
+    )
+
+  // 3.14
+  // foldLeft(Cons(1, Cons(2, Nil)
+  def append2[A](a1: List[A], a2: List[A]): List[A] =
+    foldLeft[A, List[A]](a2, a1)((x, y) => Cons(y, x)
+    )
+
+  // 3.15
+  def concatenate[A](lol: List[List[A]]): List[A] =
+    reverse(foldLeft[List[A], List[A]](lol, Nil)(append2))
+
 }
 
 
@@ -121,4 +151,19 @@ object L {
   val x = L.List(1,2,3,4)
   val res = L.foldLeft(x, 1)((a, b) => a + a*b)
   println(res)
+
+  println(L.length(x))
+
+  println(L.reverse(x))
+
+  println("######")
+  println(L.foldRight(x, 0)((x,y) => x + y))
+
+  println("#### 3.14 ####")
+  println(L.append(x, L.List(99,100)))
+
+  println("#### 3.15 ####")
+  println(L.concatenate(L.List(x, L.List(6,7,8,9), L.List(943409,349034,3490))))
+
+
 }
