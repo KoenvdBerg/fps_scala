@@ -93,8 +93,8 @@ object L {
   // 1 + foldRight(Cons(2, Cons(3, Nil))), 0)((_, y) => 1 + y)
   // 1 + 1 + foldRight(Cons(3, Nil))), 0)((_, y) => 1 + y)
   // 1 + 1 + 1 + 0
-//  def length[A](as: List[A]): Int =
-//    foldRight(as, 0)((_, y) => 1 + y)
+  def length[A](as: List[A]): Int =
+    foldRight(as, 0)((_, y) => 1 + y)
 
   //  scala > val x = L.List("foo", "bar", "bac", "baz", "foobar", "joost")
   //  val x: L.List[String] = Cons(foo, Cons(bar, Cons(bac, Cons(baz, Cons(foobar, Cons(joost, Nil))))))
@@ -114,7 +114,7 @@ object L {
   def product2(ns: List[Int]): Int =
     foldLeft(ns, 1)((x, y) => x * y)
 
-  def length[A](as: List[A]): Int =
+  def length2[A](as: List[A]): Int =
     foldLeft(as, 0)((x, _) => x + 1)
 
   // 3.12
@@ -126,8 +126,6 @@ object L {
 
   // foldLeft(Cons(1, Cons(2, Cons(3, Nil))), Nil)((x, y) => Cons(y, x))
   // foldLeft(Cons(1, Cons(2, Cons(3, Nil))), Cons(1, Nil))((x, y) => Cons(y, x))
-
-
   def reverse[A](as: List[A]): List[A] =
     foldLeft[A, List[A]](as, Nil)((y, x) =>
       Cons(x, y)
@@ -143,6 +141,27 @@ object L {
   def concatenate[A](lol: List[List[A]]): List[A] =
     reverse(foldLeft[List[A], List[A]](lol, Nil)(append2))
 
+
+  // 3.16
+  def addOneList(is: List[Int]): List[Int] = is match
+    case Cons(x, xs) => Cons(x + 1, addOneList(xs))
+    case Nil => Nil
+
+  // 3.17
+  def doubleToString(ds: List[Double]): List[String] = ds match
+    case Cons(x, xs) => Cons(x.toString, doubleToString(xs))
+    case _ => Nil
+
+  // 3.18
+  def map[A, B](as: List[A])(f: A => B): List[B] = as match
+    case Cons(x, xs) => Cons(f(x), map(xs)(f))
+    case _ => Nil
+
+  // 3.19
+  def filter[A](as: List[A])(f: A => Boolean): List[A] = as match
+    case Cons(x, xs) if f(x) => Cons(x, filter(xs)(f))
+    case Cons(x, xs) if !f(x) => filter(xs)(f)
+    case _ => Nil
 }
 
 
@@ -165,5 +184,17 @@ object L {
   println("#### 3.15 ####")
   println(L.concatenate(L.List(x, L.List(6,7,8,9), L.List(943409,349034,3490))))
 
+  println("#### 3.16 ####")
+  println(L.addOneList(x))
+
+  println("#### 3.17 ####")
+  println(L.doubleToString(L.List(1.1,2.2,3.3)))
+
+  println("#### 3.18 ####")
+  println(L.map(x)(i => i*10))
+  println(L.map(L.List("foo", "bar", "baz"))(i => s"Hello my friend named: ${i}"))
+
+  println("#### 3.19 ####")
+  println(L.filter(L.List(1,2,3,4,5,6,7,8,9,10))(i => i % 2 == 0))
 
 }
