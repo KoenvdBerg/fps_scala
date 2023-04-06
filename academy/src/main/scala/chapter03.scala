@@ -162,11 +162,39 @@ object L {
     case Cons(x, xs) if f(x) => Cons(x, filter(xs)(f))
     case Cons(x, xs) if !f(x) => filter(xs)(f)
     case _ => Nil
-}
+
+  // 3.20
+  def flatMap[A, B](as: List[A])(f: A => List[B]): List[B] =
+    def go(ass: List[A])(fs: A => List[B]): List[List[B]] =
+      ass match
+        case Cons(x, xs) => Cons(f(x), go(xs)(fs))
+        case _ => Nil
+
+    concatenate(go(as)(f))
+
+  // 3.21
+  def filter2[A](as: List[A])(f: A => Boolean): List[A] =
+    flatMap(as)(x => if f(x) then List(x) else Nil)
+
+  // 3.22
+  def addLists(a: List[Int], b: List[Int]): List[Int] =
+    if length2(a) != length2(b) then Nil
+    else
+      (a, b) match
+        case (Cons(x, xs), Cons(y, ys)) => Cons(x+y, addLists(xs, ys))
+        case (_, _) => Nil
+
+  // 3.23
+  def zipWith[A](a: List[A], b: List[A])(f: (A, A) => A): List[A] =
+    if length2(a) != length2(b) then Nil
+    else
+      (a, b) match
+        case (Cons(x, xs), Cons(y, ys)) => Cons(f(x,y), zipWith(xs, ys)(f))
+        case (_, _) => Nil
+  }
 
 
-
-@main def runthis(): Unit = {
+@main def runlist(): Unit = {
   val x = L.List(1,2,3,4)
   val res = L.foldLeft(x, 1)((a, b) => a + a*b)
   println(res)
@@ -196,5 +224,19 @@ object L {
 
   println("#### 3.19 ####")
   println(L.filter(L.List(1,2,3,4,5,6,7,8,9,10))(i => i % 2 == 0))
+
+  println("#### 3.20 ####")
+  val bob = L.flatMap(L.List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))(i => L.List(i,i))
+  println(bob)
+
+  println("#### 3.21 ####")
+  println(L.filter2(L.List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))(i => i % 2 == 0))
+
+  println("#### 3.22 ####")
+  println(L.addLists(L.List(1,2,3), L.List(4,5,6)))
+
+  println("#### 3.23 ####")
+  println(L.zipWith(L.List(1, 2, 3), L.List(4, 5, 6))((i, j) => i + j))
+  println(L.zipWith(L.List("foo", "bar", "baz"), L.List("koen", "joost", "marco"))((i, j) => s"${i}_${j}"))
 
 }
