@@ -191,6 +191,25 @@ object L {
       (a, b) match
         case (Cons(x, xs), Cons(y, ys)) => Cons(f(x,y), zipWith(xs, ys)(f))
         case (_, _) => Nil
+
+  // 3.24
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean =
+    def go[A](supp: List[A], subb: List[A]): Boolean = subb match
+      case Cons(x, xs) =>
+        val dropped = drowWhile2(supp)(y => x != y)
+        if length2(supp) - length2(dropped) == 1 then
+          dropped match
+            case Cons(_, _) => go(dropped, xs)
+            case Nil => false
+        else false
+      case _ => true
+
+    sub match
+      case Nil => true
+      case Cons(x, Nil) =>
+        val dropped = drowWhile2(sup)(u => u != x)
+        if length2(dropped) > 0 then true else false
+      case Cons(x, xs) => go(drowWhile2(sup)(y => x != y), xs)
   }
 
 
@@ -239,4 +258,17 @@ object L {
   println(L.zipWith(L.List(1, 2, 3), L.List(4, 5, 6))((i, j) => i + j))
   println(L.zipWith(L.List("foo", "bar", "baz"), L.List("koen", "joost", "marco"))((i, j) => s"${i}_${j}"))
 
+  println("#### 3.24 ####")
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(3,2)))
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(1,4)))
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(100)))
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(1,2)))
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(2,3,4)))
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(2)))
+  println(L.hasSubsequence(L.List(1,2,3,4), L.List(L.Nil)))
+
 }
+
+
+
+
