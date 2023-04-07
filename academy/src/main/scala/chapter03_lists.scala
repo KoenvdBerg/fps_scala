@@ -64,7 +64,7 @@ object L {
       case Cons(h,t) if f(h) => drowWhile2(t)(f)
       case _ => as
 
-  def foldRight[A, B](as: List[A], z: B)(f: (A, B) => B): B =
+  def foldRight2[A, B](as: List[A], z: B)(f: (A, B) => B): B =
     as match
       case Nil => z
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
@@ -131,6 +131,12 @@ object L {
       Cons(x, y)
     )
 
+  // 3.13
+  def foldRight[A, B](as: List[A], z: B)(f: (A, B) => B): B =
+    val asr = reverse(as)
+    foldLeft(asr, z)((b, a) => f(a, b))
+
+
   // 3.14
   // foldLeft(Cons(1, Cons(2, Nil)
   def append2[A](a1: List[A], a2: List[A]): List[A] =
@@ -141,27 +147,42 @@ object L {
   def concatenate[A](lol: List[List[A]]): List[A] =
     reverse(foldLeft[List[A], List[A]](lol, Nil)(append2))
 
+  def concatenate2[A](lol: List[List[A]]): List[A] =
+    foldRight[List[A], List[A]](lol, Nil)(append2)
+
 
   // 3.16
   def addOneList(is: List[Int]): List[Int] = is match
     case Cons(x, xs) => Cons(x + 1, addOneList(xs))
     case Nil => Nil
 
+  def addOneList2(is: List[Int]): List[Int] =
+    foldRight[Int, List[Int]](is, Nil)((h, acc) => Cons(h+1, acc))
+
   // 3.17
   def doubleToString(ds: List[Double]): List[String] = ds match
     case Cons(x, xs) => Cons(x.toString, doubleToString(xs))
     case _ => Nil
+
+  def doubleToString2(ds: List[Double]): List[String] =
+    foldRight[Double, List[String]](ds, Nil)((h, t) => Cons(h.toString, t))
 
   // 3.18
   def map[A, B](as: List[A])(f: A => B): List[B] = as match
     case Cons(x, xs) => Cons(f(x), map(xs)(f))
     case _ => Nil
 
+  def map2[A, B](as: List[A])(f: A => B): List[B] =
+    foldRight[A, List[B]](as, Nil)((h, t) => Cons(f(h), t))
+
   // 3.19
   def filter[A](as: List[A])(f: A => Boolean): List[A] = as match
     case Cons(x, xs) if f(x) => Cons(x, filter(xs)(f))
     case Cons(x, xs) if !f(x) => filter(xs)(f)
     case _ => Nil
+
+  def filter3[A](as: List[A])(f: A => Boolean): List[A] =
+    foldRight[A, List[A]](as, Nil)((h, t) => if f(h) then Cons(h, t) else t)
 
   // 3.20
   def flatMap[A, B](as: List[A])(f: A => List[B]): List[B] =
@@ -171,6 +192,9 @@ object L {
         case _ => Nil
 
     concatenate(go(as)(f))
+
+  def flatMap2[A, B](as: List[A])(f: A => List[B]): List[B] =
+    concatenate(map(as)(f))
 
   // 3.21
   def filter2[A](as: List[A])(f: A => Boolean): List[A] =
@@ -185,7 +209,7 @@ object L {
         case (_, _) => Nil
 
   // 3.23
-  def zipWith[A](a: List[A], b: List[A])(f: (A, A) => A): List[A] =
+  def zipWith[A, B, C](a: List[A], b: List[B])(f: (A, B) => C): List[C] =
     if length2(a) != length2(b) then Nil
     else
       (a, b) match
@@ -230,23 +254,31 @@ object L {
 
   println("#### 3.15 ####")
   println(L.concatenate(L.List(x, L.List(6,7,8,9), L.List(943409,349034,3490))))
+  println(L.concatenate2(L.List(x, L.List(6,7,8,9), L.List(943409,349034,3490))))
 
   println("#### 3.16 ####")
   println(L.addOneList(x))
+  println(L.addOneList2(x))
 
   println("#### 3.17 ####")
   println(L.doubleToString(L.List(1.1,2.2,3.3)))
+  println(L.doubleToString2(L.List(1.1,2.2,3.3)))
 
   println("#### 3.18 ####")
   println(L.map(x)(i => i*10))
   println(L.map(L.List("foo", "bar", "baz"))(i => s"Hello my friend named: ${i}"))
+  println(L.map2(x)(i => i*10))
+  println(L.map2(L.List("foo", "bar", "baz"))(i => s"Hello my friend named: ${i}"))
 
   println("#### 3.19 ####")
   println(L.filter(L.List(1,2,3,4,5,6,7,8,9,10))(i => i % 2 == 0))
+  println(L.filter3(L.List(1,2,3,4,5,6,7,8,9,10))(i => i % 2 == 0))
 
   println("#### 3.20 ####")
   val bob = L.flatMap(L.List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))(i => L.List(i,i))
   println(bob)
+  val bob2 = L.flatMap2(L.List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))(i => L.List(i,i))
+  println(bob2)
 
   println("#### 3.21 ####")
   println(L.filter2(L.List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))(i => i % 2 == 0))
