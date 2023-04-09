@@ -16,37 +16,27 @@ object day04 extends App:
       .getLines
       .toList
 
-  case class Agenda(date: Int, time: Int, min: Int, rem: String)
   case class Schedule(guard: Int, start: Int, end: Int)
   case class Hit(id: Int, vals: List[Int])
 
-  def agendaFromString(gl: String): Agenda =
-    val dtt = gl.take(18).split(" ")
-    val d = dtt.head.substring(1).split("-").mkString
-    val h = dtt.last.take(2)
-    val m = dtt.last.takeRight(3).take(2)
-    val rem = gl.split("]").last
-    Agenda(d.toInt, (h+m).toInt, m.toInt, rem)
-
-  def makeSleepSchedule(agl: List[Agenda]): List[Schedule] =
-    def go(agll: List[Agenda], s: Int, e: Int, guard: Int, acc: List[Schedule]): List[Schedule] = agll match
+  def makeSleepSchedule(agl: List[String]): List[Schedule] =
+    def go(agll: List[String], s: Int, e: Int, guard: Int, acc: List[Schedule]): List[Schedule] = agll match
       case Nil => acc ::: List(Schedule(guard, s, e))
       case h :: t =>
         if s > -1 & e > -1 then
           go(agll, -1, -1, guard, acc ::: List(Schedule(guard = guard, start = s, end = e)))
-        else if h.rem.contains("Guard") then
-          val guard = h.rem.split(" ")(2).substring(1).toInt
+        else if h.contains("Guard") then
+          val guard = h.split("#").last.split(" ").head.toInt
           go(t, -1, -1, guard, acc)
-        else if h.rem.contains("asleep") then
-          val s = h.min
+        else if h.contains("asleep") then
+          val s = h.take(18).split(" ").last.takeRight(3).take(2).toInt
           go(t, s, -1, guard, acc)
         else
-          val e = h.min
+          val e = h.take(18).split(" ").last.takeRight(3).take(2).toInt
           go(t, s, e, guard, acc)
     go(agl, -1, -1, -1, Nil)
 
-  val agendas = input.map(agendaFromString(_)).sortBy(r => (r.date, r.time))
-  val schedules = makeSleepSchedule(agendas)
+  val schedules = makeSleepSchedule(input.sorted)
   val biggestsleeper = schedules.groupBy(_.guard).map((g, y) => Vector(y.map(s => s.end - s.start).sum, g)).max
   val freqs = schedules.groupBy(_.guard).map((x, y) => Hit(x, y.map(r => Range(r.start, r.end)).flatMap(_.toList).groupBy(identity).map((x, y) => List(y.size, x)).max))
   val res1 = freqs.filter(_.id == biggestsleeper.last).head
