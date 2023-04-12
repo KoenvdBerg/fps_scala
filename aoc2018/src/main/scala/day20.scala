@@ -35,6 +35,17 @@ object day20 extends App:
   private val answer1 = res
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
+  // NOTE!!! Experiment here with this function, rewriting it to find the first part between ( and )
+//  def findFirstInstance[A](as: Array[A], f: (A, A) => Boolean): (Int, Int) = {
+//    def loop(n: Int): (Int, Int) = {
+//      if n + 1 >= as.length then (-1, -1)
+//      else if f(as(n), as(n + 1)) then (n, n + 1)
+//      else
+//        loop(n + 1)
+//    }
+//
+//    loop(0)
+//  }
 
   private val start2: Long =
     System.currentTimeMillis
