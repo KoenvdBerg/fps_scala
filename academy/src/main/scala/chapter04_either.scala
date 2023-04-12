@@ -32,7 +32,8 @@ object KEither {
 
   // 4.7
   def traverse[E, A, B](as: List[A])(f: A => KEither[E, B]): KEither[E, List[B]] = as match
-    case h :: t => f(h).flatMap(hh => traverse(t)(f).map(hh :: _))
+//    case h :: t => f(h).flatMap(hh => traverse(t)(f).map(hh :: _))
+    case h :: t => f(h).map2(traverse(t)(f))(_ :: _)
     case Nil => KRight(Nil)
 
   def sequence[E, A](es: List[KEither[E, A]]): KEither[E, List[A]] =
