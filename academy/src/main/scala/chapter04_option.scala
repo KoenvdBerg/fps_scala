@@ -56,6 +56,7 @@ case object KNone extends KOption[Nothing]
 
 // 4.2
 import math.*
+import scala.util.Try
 def mean(xs: Seq[Double]): KOption[Double] =
   if (xs.isEmpty) KNone
   else KSome(xs.sum / xs.length)
@@ -69,14 +70,41 @@ def lift[A, B](f: A => B): KOption[A] => KOption[B] = _.map(f)
 
 // 4.3
 def map2[A, B, C](a: KOption[A], b: KOption[B])(f: (A, B) => C): KOption[C] =
-  a.flatMap(aa => b.flatMap(bb => KSome(f(aa, bb))))
+  a.flatMap(aa => b.map(bb => f(aa, bb)))
+
+def map22[A, B, C](a: KOption[A], b: KOption[B])(f: (A, B) => C): KOption[C] =
+  for {
+    aa <- a
+    bb <- b
+  } yield f(aa, bb)
 
 // 4.4
 def sequence[A](a: List[KOption[A]]): KOption[List[A]] =
-  def go[A](n: Int, acc: KOption[List[A]]): KOption[List[A]] =
-    if n >= aa.length then acc
-    else
-      go(n+1, a, map2(acc, aa(n)((x, y) => )))
+  def go(aa: List[KOption[A]], acc: List[A]): KOption[List[A]] = aa match
+    case h :: t => h match
+      case KSome(v) => go(t, v :: acc)
+      case KNone => KNone
+    case Nil => KSome(acc.reverse)
+  go(a, Nil)
+
+def Try[A](a: => A): KOption[A] =
+  try KSome(a)
+  catch {case e: Exception => KNone}
+def parseInts(a: List[String]): KOption[List[Int]] =
+  sequence(a.map(i => Try(i.toInt)))
+
+def parseInt(a: String): KOption[Int] =
+  Try(a.toInt)
+
+// 4.5
+def traverse[A, B](a: List[A])(f: A => KOption[B]): KOption[List[B]] = a match
+//  case h :: t => f(h).flatMap(hh => traverse(t)(f).map(hh :: _))
+  case h :: t => map22(f(h), traverse(t)(f))(_ :: _)
+  case Nil => KSome(Nil)
+
+def sequence2[A](a: List[KOption[A]]): KOption[List[A]] =
+  traverse(a)((o: KOption[A]) => o)
+
 
 
 @main def C04(): Unit =
@@ -110,3 +138,18 @@ def sequence[A](a: List[KOption[A]]): KOption[List[A]] =
 
   println("### 4.4 ###")
   println(sequence(List(KSome(2), KSome(4))))
+  println(sequence(List(KSome(2), KSome(4), KNone)))
+
+  println(parseInts(List("1", "2", "-11")))
+  println(parseInts(List("1", "2", "-11", "jksdhfg")))
+
+  println("### 4.5 ###")
+  val y = List("1", "12", "3", "skojf")
+  val y2 = List("1", "12", "3", "88")
+  val res = traverse(y)(parseInt)
+  val res2 = traverse(y2)(parseInt)
+  println(res)
+  println(res2)
+
+  println(sequence2(List(KSome(1), KSome(2))))
+  println(sequence2(List(KSome(1), KSome(2), KNone)))
