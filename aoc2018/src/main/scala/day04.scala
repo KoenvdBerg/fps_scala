@@ -25,15 +25,10 @@ object day04 extends App:
       case h :: t =>
         if s > -1 & e > -1 then
           go(agll, -1, -1, guard, acc ::: List(Schedule(guard = guard, start = s, end = e)))
-        else if h.contains("Guard") then
-          val guard = h.split("#").last.split(" ").head.toInt
-          go(t, -1, -1, guard, acc)
-        else if h.contains("asleep") then
-          val s = h.take(18).split(" ").last.takeRight(3).take(2).toInt
-          go(t, s, -1, guard, acc)
-        else
-          val e = h.take(18).split(" ").last.takeRight(3).take(2).toInt
-          go(t, s, e, guard, acc)
+        else h match
+          case s"${_} Guard #${id} begins shift" => go(t, -1, -1, id.toInt, acc)
+          case s"${_}:${s}] falls asleep" => go(t, s.toInt, -1, guard, acc)
+          case s"${_}:${e}] wakes up" => go(t, s, e.toInt, guard, acc)
     go(agl, -1, -1, -1, Nil)
 
   val schedules = makeSleepSchedule(input.sorted)
