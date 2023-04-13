@@ -47,6 +47,26 @@ object day20 extends App:
 //    loop(0)
 //  }
 
+  def stringFrom(s: String)(f: Char => Boolean): Option[String] =
+    def loop(n: Int): Option[String] = {
+      if n >= s.length then None
+      else if f(s(n)) then Some(s.slice(n, s.length))
+      else
+        loop(n + 1)
+    }
+    loop(0)
+
+
+  def stringFromTo(s: String)(from: Char => Boolean)(to: Char => Boolean): String =
+    def go(ins: String, n: Int, start: Int)(f: Char => Boolean): String = {
+      if n >= ins.length then ""
+      else if f(ins(n)) then
+        if start == 0 then ins.slice(0, n+1) else ins.slice(n, ins.length)
+      else
+        go(ins, n + 1, start)(f)
+    }
+    go(go(s, 0, 0)(to), 0, 1)(from)
+
   private val start2: Long =
     System.currentTimeMillis
 
