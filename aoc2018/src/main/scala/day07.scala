@@ -18,180 +18,80 @@ object day07 extends App:
       }
       .toList
 
-  def findNextStep(steps: Set[Char], pairs: List[String]): String =
-    steps.filter(step => pairs.forall(s => s.last != step)).mkString.sorted
+  def findNextStep(todo: Set[Char], deps: List[String]): List[Char] =
+    todo.filter(step => deps.forall(s => s.last != step)).toList.sorted
 
-  def findOrder(steps: Set[Char], pairs: List[String], acc: String): String =
-    if steps.isEmpty then acc
+  def findOrder(todo: Set[Char], deps: List[String], acc: String): String =
+    if todo.isEmpty then acc                           // exit condition --> all steps finished
     else
-      val next = findNextStep(steps, pairs).head
-      val nextsteps = steps.filter(_ != next)
-      val nextpairs = pairs.filter(p => p.head != next)
-      println(s"$nextsteps <> $next --> $acc + $next")
-      findOrder(nextsteps, nextpairs, acc + next)
+      val next = findNextStep(todo, deps).head         // find available steps
+      val nextsteps = todo.filter(_ != next)           // remove from steps to be done
+      val nextdeps = deps.filter(p => p.head != next)  // remove from dependency list
+      findOrder(nextsteps, nextdeps, acc + next)       // continue and append next to acc string
 
   private val answer1 = findOrder(input.mkString.toSet, input, "")
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
-  case class Worker(step: String, time: Int)
-
+  case class Worker(step: Option[Char], time: Int)
   def stepTime(s: Char): Int =
-    (s.toInt - 65 + 1) // + 60
-
-  def assignSteps(s: String, ws: List[Worker]): List[Worker] =
-    val (sh, st) = s.splitAt(1)
-    val (wh, wt) = ws.splitAt(1)
-    if sh == "" then ws
-    else if ws.length <= 0 then ws
-    else
-      if wh.head.time == 0 then
-        Worker(sh, stepTime(sh.head)) :: assignSteps(st, wt)
+    s.toInt - 4
+  def assignSteps(upnext: List[Char], workers: List[Worker], inprogress: List[Char]): List[Worker] =
+      val (th, tt) = upnext.splitAt(1)        // head and tail of upnext
+      val (wh, wt) = workers.splitAt(1)       // head and tail of workers
+      if th.isEmpty then workers              // exit condition --> no more steps upnext
+      else if workers.isEmpty then workers    // exit condition --> no more viable workers to assign to
+      
+      // in this case assign step to worker if worker is done (time == 0) 
+      // and no other worker is working on that step already  
+      else if wh.head.time == 0 & !inprogress.contains(th.head) then
+        Worker(Some(th.head), stepTime(th.head)) :: assignSteps(tt, wt, inprogress)
       else
-        wh.head :: assignSteps(s, wt)
+        wh.head :: assignSteps(upnext, wt, inprogress)   // skip assignation
+  def simulate(time: Int, workers: List[Worker], todo: Set[Char], dependencies: List[String]): Int =
 
+    val inprogress = workers.flatMap(worker => worker.step)
 
-  def simulate(time: Int, workers: List[Worker], steps: Set[Char], pairs: List[String]): Int =
-    if steps.isEmpty & workers.forall(_.time <= 0) then time
+//    println(s"$time --> $workers working on $inprogress")
+
+    // decrement time for every worker
+    val updated_workers = workers.map(worker =>
+      Worker(worker.step, (worker.time - 1).max(0)))
+
+    // find finished workers
+    val finished_workers = updated_workers.filter(worker =>
+      worker.time == 0 & worker.step != None)
+
+    // if the time is -1, that means that every worker does nothing. In that case, start
+    // the process
+    if time < 0 then
+      val next = findNextStep(todo, dependencies)
+      val newworkers = assignSteps(next, updated_workers, inprogress)
+      simulate(time + 1, newworkers, todo, dependencies)
+
+    // exit condition:
+    else if todo.isEmpty & workers.forall(_.time <= 0) then time
+
+    // the other case is that there are finished workers:
+    else if finished_workers.nonEmpty then
+      // removing finished steps from steps Set and dependencies List
+      val finished_steps = finished_workers.flatMap(w => w.step)
+      val nextsteps = todo.filter(uu => !finished_steps.contains(uu))
+      val nextdeps = dependencies.filter(p => !finished_steps.contains(p.head))
+
+      // finding the next steps available and distributing those steps:
+      val next = findNextStep(nextsteps, nextdeps).filter(n => !inprogress.contains(n))
+      val newworkers = assignSteps(next, updated_workers, inprogress)
+      simulate(time + 1, newworkers, nextsteps, nextdeps)
+
+    // if none is finished, then continue working:
     else
-
-      println(s"$time: $workers with $steps")
-
-      // decrement time:
-      val updated_workers = workers.map(worker =>
-        Worker(worker.step, (worker.time-1).max(0)))
-
-      // handle completed steps:
-      val finished_workers = updated_workers.filter(worker =>
-        worker.time == 0 & worker.step != "")
-
-      if finished_workers.nonEmpty then
-
-        // remove completed steps from uncompleted steps Set and
-        // remove the completed steps from the dependencies (in pairs)
-        val next = findNextStep(steps, pairs)
-        val nextsteps = steps.filter(!next.contains(_))
-        val nextpairs = pairs.filter(p => !next.contains(p.head.toString))
-
-        // handle giving new steps to finished workers:
-        val newworkers = assignSteps(next, updated_workers)
-        simulate(time+1, newworkers, nextsteps, nextpairs)
-
-      else if updated_workers.forall(w => w.time == 0 & w.step == "") then
-        val next = findNextStep(steps, pairs)
-        val newworkers = assignSteps(next, updated_workers)
-        val nextsteps = steps.filter(!next.contains(_))
-        val nextpairs = pairs.filter(p => !next.contains(p.head.toString))
-        simulate(time + 1, newworkers, nextsteps, nextpairs)
-
-      else
-        // handle giving new steps to finished workers:
-        simulate(time+1, updated_workers, steps, pairs)
+      simulate(time + 1, updated_workers, todo, dependencies)
 
 
 
   private val start2: Long =
     System.currentTimeMillis
 
-  private val workers = Range(0,2).toList.map(x => Worker("", 0))
+  private val workers = Range(0,5).toList.map(x => Worker(None, 0))
   private val answer2 = simulate(-1, workers, input.mkString.toSet, input)
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
-
-
-//  def findFirstNode(cs: List[String]): String = cs match
-//    case h :: t =>
-//      val tr = t.filter(r => h.head == r.last)
-//      if tr.length >= 1 then findFirstNode(t)
-//      else h
-//    case Nil => ""
-//
-//  def makeChain(cs: List[String]): String =
-//    def go(css: List[String], acc: String): String =
-//      if css.length <= 0 then acc
-//      else
-//        val f = findFirstNode(css)
-//        val insertLoc = acc.indexOf(f.head)
-//        val tt = if insertLoc < acc.length - 1 then
-//          if acc.contains(f.last) then
-//            acc
-//          else
-//            val fn = acc.replace(s"${f.head}", f)
-//            val sl = fn.slice(insertLoc+1, insertLoc+3)
-//            fn.replace(sl, sl.sorted)
-//        else
-//          val fn = acc.replace(s"${f.last}", "").replace(s"${f.head}", f)
-//          fn
-//        println(s"$acc :: $f :: $insertLoc --> $css => $tt")
-//        go(css.filter(_ != f), tt)
-//
-//    val first = findFirstNode(cs)
-//    go(cs.filter(_ != first), first)
-
-// IDEA: sort and do per letter and make a chain for that letter only. See if this gives possibilites
-//
-//def chainPerChar(cs: List[String]): String =
-//  if cs.isEmpty then ""
-//  else
-//    println(s"${cs.head.last} --> $cs")
-//    cs.map(_.head).mkString.sorted + cs.head.last
-//
-//def makeCharChains(ca: String, cs: List[String]): List[String] =
-//  val x = ca.map(f => cs.filter(_.last == f))
-//  x.map(chainPerChar(_)).toList
-
-
-//def makeChain2(cs: List[String], avs: String, acc: String): String =
-//  if avs == "" then acc
-//  else
-//    // taking the first of the available items to process next
-//    val (av, rem) = avs.sorted.splitAt(1)
-//
-//    // removing already available items from list
-//    val csnext = cs.filter(d => d.head.toString != av)
-//
-//    // finding the next available items
-//    val find = cs.filter(d => av == d.head.toString)
-//    val nextav = find.map(_.last).mkString
-//
-//    // checking if available items are really available and don't have other dependencies
-//    val nextavtrue = nextav.filter(av => !csnext.map(_.last).contains(av))
-//
-//    //      println(s"$av and $rem --> $rem + $nextavtrue ||| $csnext")
-//    makeChain2(csnext, (rem + nextavtrue).toSet.mkString, av + acc)
-//
-//def simulate(time: Int, workers: List[Worker], steps: Set[Char], pairs: List[String]): Int =
-//  if steps.isEmpty & workers.forall(_.time <= 0) then time
-//  else
-//
-//    println(s"$time: $workers with $steps")
-//
-//
-//    // decrement time:
-//    val updated_workers = workers.map(worker =>
-//      Worker(worker.step, (worker.time - 1).max(0)))
-//
-//    // handle completed steps:
-//    val finished_workers = updated_workers.filter(worker =>
-//      worker.time == 0 & worker.step != "")
-//
-//    if finished_workers.nonEmpty then
-//
-//      // remove completed steps from uncompleted steps Set and
-//      // remove the completed steps from the dependencies (in pairs)
-//      val next = findNextStep(steps, pairs)
-//      val nextsteps = steps.filter(!next.contains(_))
-//      val nextpairs = pairs.filter(p => !next.contains(p.head.toString))
-//
-//      // handle giving new steps to finished workers:
-//      val newworkers = assignSteps(next, finished_workers) ++ updated_workers.filter(w => w.step == "")
-//      println(s"$next, $newworkers")
-//      simulate(time + 1, newworkers, nextsteps, nextpairs)
-//
-//    else if updated_workers.forall(w => w.time == 0 & w.step == "") then
-//      val next = findNextStep(steps, pairs)
-//      val newworkers = assignSteps(next, updated_workers)
-//      val nextsteps = steps.filter(!next.contains(_))
-//      val nextpairs = pairs.filter(p => !next.contains(p.head.toString))
-//      simulate(time + 1, newworkers, nextsteps, nextpairs)
-//    else
-//      simulate(time + 1, updated_workers, steps, pairs)
