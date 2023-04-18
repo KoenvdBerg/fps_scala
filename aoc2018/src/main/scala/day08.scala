@@ -3,19 +3,6 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
-/**
- * PART 1:
- *
- * the idea is as follows:
- *
- *  1. exit condition --> input has become empty return accumulator
- *  2. parse header 1x
- *    a. parse child node quantity
- *    b. parse metadata entries amount
- *    c. go to end of header line to get metadata entries
- *  3. append metadata entries to accumulator
- */
-
 
 object day08 extends App:
 
@@ -25,55 +12,71 @@ object day08 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input: List[Int] =
+  private val input: Seq[Int] =
     Source
       .fromResource(s"day$day.txt")
       .getLines
       .toList
       .head.split(" ")
       .map(_.toInt)
-      .toList
 
-  sealed trait Tree[Int]
-  case object Leaf extends Tree[Int]
-  case class Node(n: Seq[Tree[Int]], meta: Seq[Int], childs: Int) extends Tree[Int]
+  sealed trait Tree[+A]:
+    def metaToList: List[Int] = this match
+      case Node(st, meta, _) =>
+        meta.toList ::: st.flatMap(tt => tt.metaToList).toList
 
-  def parseHeaderTree(h: mutable.Stack[Int]): Tree[Int] =
-    val c = h.pop
-    val e = h.pop
-    val children = for {
-      x <- Range(0,c)
-    } yield parseHeaderTree(h)
-    val meta = for {
-      y <- Range(0,e)
-    } yield h.pop
-    Node(children, meta, c)
+    def treeRootValues: Seq[Int] = this match
+      case Node(st, meta, nChilds) =>
+        val viableSubNodes: Seq[Int] = meta.filter(e => e <= st.length & e != 0)
+        if nChilds == 0 then meta
+        else if viableSubNodes.isEmpty then Seq(0)
+        else viableSubNodes.flatMap(i => st(i-1).treeRootValues)
+
+  case class Node[A](n: Seq[Tree[A]], meta: Seq[Int], childs: Int) extends Tree[A]
+
+  object Tree {
+    def treeFromHeader(h: Seq[Int]): Tree[Int] =
+
+      val mutableSeq = new mutable.Stack[Int]
+
+      def fillStack(s: mutable.Stack[Int], is: Seq[Int]): mutable.Stack[Int] =
+        is.map(s += _)
+        s
+
+      def parseHeader(s: mutable.Stack[Int]): Tree[Int] =
+        val c: Int = s.pop
+        val e: Int = s.pop
+        val children: Seq[Tree[Int]] = for {
+          _ <- Range(0, c)
+        } yield parseHeader(s)
+        val meta: Seq[Int] = for {
+          _ <- Range(0, e)
+        } yield s.pop
+        Node(children, meta, c)
+
+      fillStack(mutableSeq, h)
+      parseHeader(mutableSeq)
+  }
 
 
-  def treeMetaToList(t: Tree[Int]): List[Int] = t match
-    case Leaf => Nil
-    case Node(st, meta, _) =>
-      meta.toList ::: st.flatMap(tt => treeMetaToList(tt)).toList
-
-
-  var inc = new mutable.Stack[Int]
-  input.map(inc += _)
-  private val res1 = parseHeaderTree(inc)
-  private val answer1 = treeMetaToList(res1).sum
+  private val res1 = Tree.treeFromHeader(input)
+  private val answer1 = res1.metaToList.sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
     System.currentTimeMillis
 
-  def treeRootValues(t: Tree[Int]): Seq[Int] = t match
-    case Leaf => Nil
-    case Node(st, meta, c) =>
-      val x = meta.filter(e => e <= st.length & e != 0 )
-      println(s"$meta and $x with $c --> $st")
-      if c == 0 then meta
-      else if x.isEmpty then Seq(0)
-      else x.flatMap(i => treeRootValues(st(i-1)))
 
-  private val answer2 = treeRootValues(res1).sum
+  private val answer2 = res1.treeRootValues.sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+
+//
+//def treeRootValues(t: Tree[Int]): Seq[Int] = t match
+//  case Leaf => Nil
+//  case Node(st, meta, c) =>
+//    val x = meta.filter(e => e <= st.length & e != 0)
+//    println(s"$meta and $x with $c --> $st")
+//    if c == 0 then meta
+//    else if x.isEmpty then Seq(0)
+//    else x.flatMap(i => treeRootValues(st(i - 1)))
