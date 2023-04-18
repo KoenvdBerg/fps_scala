@@ -76,6 +76,40 @@ object chapter05 {
     def find(p: A => Boolean): Option[A] =
       this.filter(p).headOption
 
+    // 5.13
+    def map2[B](f: A => B): Stream[B] =
+      Stream.unfold(this) {
+        case Cons(h, t) => Some((f(h()), t()))
+        case Empty => None
+      }
+
+    def take2(n: Int): Stream[A] =
+      Stream.unfold((this, n)){
+        case (Cons(h, _), 1) => Some(h(), (Stream.empty, 0))
+        case (Cons(h, t), n) if n > 1 => Some(h(), (t(), n-1))
+        case _ => None
+      }
+
+    def takeWhile2(p: A => Boolean): Stream[A] =
+      Stream.unfold(this){
+        case Cons(h, t) if p(h()) => Some(h(), t())
+        case _ => None
+      }
+
+    def zipWith2[B, C](b: Stream[B])(f: (A, B) => C): Stream[C] =
+      Stream.unfold((this, b)) {
+        case (Cons(h1, t1), Cons(h2, t2)) => Some(f(h1(), h2()), (t1(), t2()))
+        case _ => None
+      }
+
+    def zipAll[B](s2: Stream[B]): Stream[(Option[A], Option[B])] =
+      Stream.unfold((this, s2)){
+        case (Cons(h1, t1), Cons(h2, t2)) => (h1(), h2())
+        case _ => None
+      }
+
+
+
 
   case object Empty extends Stream[Nothing]
   case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
@@ -94,6 +128,10 @@ object chapter05 {
     // 5.8
     def constant[A](a: A): Stream[A] =
       Stream.cons(a, constant(a))
+
+    def constantCorrect[A](a: A): Stream[A] =
+      lazy val c: Stream[A] = Stream.cons(a, c)
+      c
 
     // 5.9
     def from(n: Int): Stream[Int] =
@@ -121,7 +159,25 @@ object chapter05 {
 
     // 5.11
     def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] =
-      Stream.cons(z, unfold(f(z)(f)))
+      f(z) match
+        case None => Stream.empty
+        case Some((a: A, s: S)) => Stream.cons(a, unfold(s)(f))
+
+    // 5.12
+    def fibs3: Stream[Int] =
+      unfold((0, 1))(f => Some(f._1, (f._2, f._1 + f._2)))
+
+    def from3: Stream[Int] =
+      unfold(0)(f => Some(f, f+1))
+
+    def from3Correct(n: Int): Stream[Int] =
+      unfold(n)(f => Some(f, f +1))
+
+    def constant3[A](n: A): Stream[A] =
+      unfold(n)(f => Some(f, f))
+
+    def ones3: Stream[Int] =
+       unfold(1)(f => Some(f, f))
   }
 
 }
@@ -160,5 +216,21 @@ val x = chapter05.Stream(1,2,3,4,5,6,7,8,9)
   println(chapter05.Stream.fibs2.take(10).toList)
 
   println("### 5.11 ###")
-  val r = chapter05.Stream.unfold(0)(f => Some(f + 3))
+//  val r = chapter05.Stream.unfold(0)(f => Some((None, f+100)))
+  val r = chapter05.Stream.unfold(0)(f => Some(f, f+1))
   println(r.take(10).toList)
+
+  println("### 5.12 ###")
+  println(chapter05.Stream.fibs3.take(10).toList)
+  println(chapter05.Stream.from3.take(10).toList)
+  println(chapter05.Stream.constant3(9).take(10).toList)
+  println(chapter05.Stream.ones3.take(10).toList)
+
+  println("### 5.14  ###")
+  println(t.map2(f => f * 100).take(10).toList)
+  println(t.take2(n=3).toList)
+  println(t.takeWhile2(p => p < 6).toList)
+  val f1 = chapter05.Stream.fibs3
+  val f2 = chapter05.Stream.from3
+  println(f1.zipWith2(f2)((a, b) => a + b).take2(10).toList)
+  println(f1.zipAll(f2).take2(10).toList)
