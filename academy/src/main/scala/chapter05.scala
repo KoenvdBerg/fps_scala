@@ -1,3 +1,5 @@
+import chapter05.Stream.{empty, unfold}
+
 object chapter05 {
   def if22[A](cond: Boolean, onTrue: () => A, onFalse: () => A): A =
     if cond then onTrue() else onFalse()
@@ -104,9 +106,52 @@ object chapter05 {
 
     def zipAll[B](s2: Stream[B]): Stream[(Option[A], Option[B])] =
       Stream.unfold((this, s2)){
-        case (Cons(h1, t1), Cons(h2, t2)) => (h1(), h2())
+        case (Cons(h1, t1), Cons(h2, t2)) => Some((Some(h1()), Some(h2())), (t1(), t2()))
+        case (Empty, Cons(h2, t2)) => Some((None, Some(h2())), (Empty, t2()))
+        case (Cons(h1, t1), Empty) => Some((Some(h1()), None), (t1(), Empty))
+        case (Empty, Empty) => Some((None, None), (Empty, Empty))
         case _ => None
       }
+
+    // 5.14
+    def startsWith[A](s: Stream[A]): Boolean =
+      this.zipAll(s).takeWhile {
+        case (Some(a), Some(b)) => a == b
+        case (Some(_), None) => false
+        case (None, Some(_)) => false
+        case (None, None) => false
+      }.forAll(p => p._1.isDefined  && p._2.isDefined)
+
+
+    def startsWith2[A](s: Stream[A]): Boolean =
+      this.zipAll(s).takeWhile(p => p._2.isDefined).forAll((a, b) => a == b)
+
+    // 5.15
+    def tails: Stream[Stream[A]] =
+      unfold(this){
+        case Cons(h, t) => Some(Stream.cons(h(), t()), Stream.cons(h(), t()).drop(1))
+        case Empty => None
+      }
+
+    def hasSubsequence[A](s: Stream[A]): Boolean =
+      this.tails.exists(p => p.startsWith2(s))
+
+
+    // 5.16
+    //    def foldRight[B](z: => B)(f: (A, => B) => B): B =
+    //      this match
+    //        case Cons(h, t) => f(h(), t().foldRight(z)(f))
+    //        case _ => z
+    def scanRight[B](z: => B)(f: (A, => B) => B): Stream[B] =
+      unfold(this) {
+        case Cons(h, t) => Some(Stream.cons(h(), t()).foldRight(z)(f), Stream.cons(h(), t()).drop(1))
+        case Empty => None
+      }
+
+
+    def scanRight2[B](z: => B)(f: (A, => B) => B): Stream[B] =
+      this.tails.map(p => p.foldRight(z)(f))
+
 
 
 
@@ -226,7 +271,7 @@ val x = chapter05.Stream(1,2,3,4,5,6,7,8,9)
   println(chapter05.Stream.constant3(9).take(10).toList)
   println(chapter05.Stream.ones3.take(10).toList)
 
-  println("### 5.14  ###")
+  println("### 5.13  ###")
   println(t.map2(f => f * 100).take(10).toList)
   println(t.take2(n=3).toList)
   println(t.takeWhile2(p => p < 6).toList)
@@ -234,3 +279,18 @@ val x = chapter05.Stream(1,2,3,4,5,6,7,8,9)
   val f2 = chapter05.Stream.from3
   println(f1.zipWith2(f2)((a, b) => a + b).take2(10).toList)
   println(f1.zipAll(f2).take2(10).toList)
+
+  println("### 5.14 ###")
+  val sw1 = chapter05.Stream(1,2,3,4,5)
+  val sw2 = chapter05.Stream(1,2,3)
+  println(sw1.startsWith2(sw2))
+  println(sw2.startsWith2(sw1))
+
+  println("### 5.15 ###")
+  println(sw2.tails.toList.map(_.toList))
+
+  println(sw1.hasSubsequence(chapter05.Stream(2,3,4)))
+
+  println("### 5.16 ###")
+  println(chapter05.Stream(1,2,3).scanRight(0)((a, b) => a + b).toList)
+  println(chapter05.Stream(1,2,3).scanRight2(0)((a, b) => a + b).toList)
