@@ -44,16 +44,28 @@ object day09 extends App:
         else ls.drop(nbound) ::: ls.take(nbound)
   }
 
-  def simulateMarbleGame(lastMarble: Int, circle: List[Int] = List.empty[Int], n: Int = 0): List[Int] =
-    if circle.length == lastMarble then circle
-    else
-//      if n % 23 == 0 then
-      val next: List[Int] = ListHelper.appendHead(ListHelper.rotate(2, circle), n)
-      simulateMarbleGame(lastMarble, next, n+1)
 
-  private val answer1 = simulateMarbleGame(72000)
-//  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
-  println(s"Answer day $day part 1:  [${System.currentTimeMillis - start1}ms]")
+  def simulateMarbleGame(lastMarble: Int, nPlayers: Int, scoreBoard: Map[Int, Int] = Map(),
+                         circle: List[Int] = List(0), n: Int = 1): Map[Int, Int] =
+    if n >= lastMarble then scoreBoard
+    else
+      val (score, next): (Int, List[Int]) = if n % 23 == 0 then
+        val tmp: (Int, List[Int]) = ListHelper.takeHead(ListHelper.rotate(-7, circle))
+        (tmp._1 + n, tmp._2)
+      else
+        (0, ListHelper.appendHead(ListHelper.rotate(2, circle), n))
+
+      val thisPlayer: Int = n % nPlayers
+      val updatedScoreBoard = if !scoreBoard.contains(thisPlayer) then
+        scoreBoard.updated(thisPlayer, score)
+      else
+        scoreBoard.updated(thisPlayer, scoreBoard(thisPlayer) + score)
+
+      simulateMarbleGame(lastMarble, nPlayers, updatedScoreBoard, next, n+1)
+
+  private val res1: Map[Int, Int] = simulateMarbleGame(1000, 10)
+  private val answer1 = res1.maxBy(_._2)._2
+  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
