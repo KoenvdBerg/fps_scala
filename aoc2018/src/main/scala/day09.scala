@@ -48,56 +48,55 @@ object day09 extends App:
     System.currentTimeMillis
 
   private val input: (Int, Int) =
+
+    val parser: String => (Int, Int) = {
+      case s"${nPlayers} players; last marble is worth ${lastMarblePoints} points" => (nPlayers.toInt, lastMarblePoints.toInt)
+      case _ => sys.error("boom")
+    }
+
     Source
       .fromResource(s"day$day.txt")
       .getLines
       .toList
-      .map{
-        case s"${nPlayers} players; last marble is worth ${lastMarblePoints} points" => (nPlayers.toInt, lastMarblePoints.toInt)
-        case _ => sys.error("boom")
-      }
+      .map(parser)
       .head
 
   object Vectorr {
-    def takeHeadVector[A](ls: Vector[A]): (A, Vector[A]) =
-      if ls.isEmpty then sys.error("Empty Vector doesn't have head")
-      else
-        val tmp = ls.splitAt(1)
-        (tmp._1.head, tmp._2)
-
-    def appendHeadVector[A](as: Vector[A], r: A): Vector[A] =
-      as.+:(r)
-
-    def rotateVector[A](N: Int, s: Vector[A]): Vector[A] =
+    def rotateVector[A](n: Int, s: Vector[A]): Vector[A] =
       if s.isEmpty then s
       else
-        val nbound = N % s.length // skipping the full rotation rounds
+        val nbound = n % s.length // skipping the full rotation rounds
         if nbound < 0 then rotateVector(nbound + s.length, s)
         else s.drop(nbound) ++ s.take(nbound)
   }
 
-  def simulateMarbleGame(lastMarble: Int, nPlayers: Int, scoreBoard: Map[Int, Long] = Map(),
-                         circle: Vector[Long] = Vector(0), n: Long = 1): Map[Int, Long] =
+  def simulateMarbleGame(lastMarble: Int, nPlayers: Int, scoreBoard: Map[Int, Long] = Map.empty,
+                         circle: Vector[Long] = Vector(0), marble: Long = 1): Map[Int, Long] =
     import Vectorr.*
-    if n >= lastMarble then scoreBoard   // Exit condition
+    if marble >= lastMarble then scoreBoard   // Exit condition
     else
 
       // in case n == 23, then the score gets computed. In all other cases, score is 0
-      val (score, nextCircle): (Long, Vector[Long]) = if n % 23 == 0 then
-        val tmp: (Long, Vector[Long]) = takeHeadVector(rotateVector(-7, circle))
-        (tmp._1 + n, tmp._2)
-      else
-        (0.toLong, appendHeadVector(rotateVector(2, circle), n))
+      val (score, nextCircle): (Long, Vector[Long]) =
+        if marble % 23 == 0 then
+          rotateVector(-7, circle) match
+            case h +: t => (h + marble, t)  // updating score, don't add marble to circle
+            case Vector() => sys.error("cannot take head of empty vector")
+        else
+          rotateVector(2, circle) match
+            case h +: t => (0L, marble +: h +: t)  // score is 0, adding marble to circle
+            case Vector() => sys.error("marble circle cannot be empty")
 
       // the current player is based off the total N players mod n. Update the scoreboard for the current player.
-      val thisPlayer: Int = (n % nPlayers).toInt
-      val updatedScoreBoard = if !scoreBoard.contains(thisPlayer) then
-        scoreBoard.updated(thisPlayer, score)
-      else
-        scoreBoard.updated(thisPlayer, scoreBoard(thisPlayer) + score)
+      val thisPlayer: Int = (marble % nPlayers).toInt
+      val updatedScoreBoard: Map[Int, Long] =
+        if !scoreBoard.contains(thisPlayer) then
+          scoreBoard.updated(thisPlayer, score)
+        else
+          scoreBoard.updated(thisPlayer, scoreBoard(thisPlayer) + score)
 
       // continue simulation with updated scoreboard and the next marble circle
-      simulateMarbleGame(lastMarble, nPlayers, updatedScoreBoard, nextCircle, n + 1)
+      simulateMarbleGame(lastMarble, nPlayers, updatedScoreBoard, nextCircle, marble + 1)
 
   private val res1: Map[Int, Long] = simulateMarbleGame(input._2, input._1)
   private val answer1 = res1.maxBy(_._2)._2
