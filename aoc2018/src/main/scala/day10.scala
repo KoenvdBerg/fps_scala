@@ -3,6 +3,29 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
+/**
+ * PART 1:
+ *
+ * The general process for solving this puzzle was the following:
+ *
+ *  1. read in the input.txt file and parse it to a Star case class
+ *  2. create a function that updates a star based on its velocity on the x and y axes
+ *  3. create a window with a variable width and height. This window has the following specs:
+ *    a. it can be nicely printed to stdout.
+ *    b. it checks whether or not any star enters the window. If so, the star coordinate is represented by #.
+ *       All other coordinates are represented by ".".
+ *  4. create an algorithm that updates the night sky and only prints if any star is present in the focus window.
+ *     for every iteration, do:
+ *     a. update every star.
+ *     b. if no star has entered the focus window, keep on loading and reiterating.
+ *     c. if any star is in the window, print time and the window.
+ *
+ *  Using the above code, I could see the stars forming the hidden message, and halt the code at the appropriate time.
+ *  Then I just needed to check the message by scrolling through the output in the terminal.
+ *
+ */
+
+
 object day10 extends App:
 
   private val day: String =
