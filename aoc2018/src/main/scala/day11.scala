@@ -3,6 +3,26 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
+/**
+ *
+ * Solving this day consisted of the following steps:
+ *
+ *  1. The computePower function --> computes the power for any coordinate in the 300x300 fuel grid
+ *
+ *  2. The square function --> creates a square sub-grid starting from any coordinate with a variable size. This function
+ *  creates the square sub-grid downwards and to the right of the starting coordinate.
+ *
+ *  3. The mostPower function --> computes the fuel sub grid of size 3 that has the highest cumulative power in its cells.
+ *  Interesting in this function is that it nicely tracks the coordinates and that it doesn't create out-of-bound square
+ *  sub-grids through subtracting the 300 main grid by the subgrid size.
+ *
+ *  4. The mostPowerForAllSizes function --> utilizes the mostPower function to compute multiple highest power sub-grids
+ *  for subgrid sizes between 1 and 20. Higher than 20 the algorithm started slowing down drastically. However, seeing
+ *  that all given examples used grids below 20, I figured that my grid would probably also be below 20. This turned out
+ *  to be right. I think this can be mathematically proven some way somehow, but that's out of scope here.
+ *
+ */
+
 object day11 extends App:
 
   private val day: String =
