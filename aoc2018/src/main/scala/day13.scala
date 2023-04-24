@@ -7,5 +7,7 @@
 // Use the State monad from scalaZ to implement the cart state for intersections
 // perhaps also make: type Cart[A, S] or something like this
 //
+// TODO: make function that reads in file as grid
+//
 // compute the whole lot. If any coord point of card is identical, then return crash coords
 // track cards only, + / \ are fixed and only operate if card has same coords
