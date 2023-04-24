@@ -4,5 +4,8 @@
 // \ --> transforms (x-1, y+1)
 // + --> transforms(x+0, y+0) or / \
 //
+// Use the State monad from scalaZ to implement the cart state for intersections
+// perhaps also make: type Cart[A, S] or something like this
+//
 // compute the whole lot. If any coord point of card is identical, then return crash coords
 // track cards only, + / \ are fixed and only operate if card has same coords
