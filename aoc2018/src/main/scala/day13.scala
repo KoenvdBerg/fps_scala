@@ -128,13 +128,31 @@ object day13 extends App:
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
+  def simulateTrain2(carts: Vector[Cart], rails: Vector[Rail]): Cart =
+
+    def go(cs: Vector[Cart], acc: Vector[Cart] = Vector.empty): Vector[Cart] =
+      cs match
+        case c +: t =>
+          // check if current cart reached other cart location. In that case delete carts and continue
+          if carts.map(_.loc).count(_ == c.loc) > 1 then go(t.filter(_.loc != c.loc), acc)
+
+          // continue updating the current cart
+          else
+            val rail: Option[Rail] = rails.find(r => r.loc == c.loc)
+            rail match
+              case None => sys.error(s"cannot update because rail not found: $rail and $c, $rails")
+              case Some(r) => go(t, c.computeSwitch(r.switch) +: acc)
+        case Vector() => acc.reverse
+
+    val newCarts: Vector[Cart] = go(carts)
+    if newCarts.length == 1 then
+      newCarts.head
+    else
+      simulateTrain2(newCarts.sortBy(_.loc.x), rails)
+
+
   private val start2: Long =
     System.currentTimeMillis
 
-  private val answer2 = "NONE"
+  private val answer2 = simulateTrain2(incarts, inrails)
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
-
-// YARD:
-//case '-' => Rail(Straight, Point(x, y))
-//case '|' => Rail(Straight, Point(x, y))
