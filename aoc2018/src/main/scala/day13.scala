@@ -3,18 +3,6 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
-/**
- *  IDEA: make list of Point that have + \ /
- *  cards are tuple of (coords, dir, intersection) e.g. (Point(1,1), (1,0), (0,0,1)) --> moving right (x + 1, y + 0) each tick
- *  / --> transforms (x+1, y-1)
- *  \ --> transforms (x-1, y+1)
- *  + --> transforms(x+0, y+0) or / \
- *  Use the State monad from scalaZ to implement the cart state for intersections
- *  perhaps also make: type Cart[A, S] or something like this
- *  TODO: make function that reads in file as grid
- *  compute the whole lot. If any coord point of card is identical, then return crash coords
- *  track cards only, + / \ are fixed and only operate if card has same coords
- */
 
 object day13 extends App:
 
@@ -62,14 +50,10 @@ object day13 extends App:
 
     def handleIntersect: Cart =
       val newDir: Point = (intersect.head, dir) match
-        case (Back, Point(0, 1)) => backwardSwitch.dir
-        case (Back, Point(0, -1)) => backwardSwitch.dir
-        case (Back, Point(1, 0)) => forwardSwitch.dir
-        case (Back, Point(-1, 0)) => forwardSwitch.dir
-        case (Forward, Point(0, 1)) => forwardSwitch.dir
-        case (Forward, Point(0, -1)) => forwardSwitch.dir
-        case (Forward, Point(1, 0)) => backwardSwitch.dir
-        case (Forward, Point(-1, 0)) => backwardSwitch.dir
+        case (Back, Point(0, _)) => backwardSwitch.dir
+        case (Back, Point(_, 0)) => forwardSwitch.dir
+        case (Forward, Point(0, _)) => forwardSwitch.dir
+        case (Forward, Point(_, 0)) => backwardSwitch.dir
         case (Straight, _) => straight.dir
         case _ => sys.error("unknown track cannot handle intersection")
       Cart(loc, newDir, rotateVector(1, intersect))
@@ -107,15 +91,16 @@ object day13 extends App:
     def go(cs: Vector[Cart], acc: Vector[Cart] = Vector.empty): (Option[Point], Vector[Cart]) =
       cs match
         case c +: t =>
-          // check if current cart reached other cart location. In that case exit function
-          if carts.map(_.loc).count(_ == c.loc) > 1 then (Some(c.loc), acc)
-
-          // continue updating the current cart
-          else
-            val rail: Option[Rail] = rails.find(r => r.loc == c.loc)
-            rail match
-              case None => sys.error(s"cannot update because rail not found: $rail and $c, $rails")
-              case Some(r) => go(t, c.computeSwitch(r.switch) +: acc)
+          // update this cart based on rail it's on
+          val rail: Option[Rail] = rails.find(r => r.loc == c.loc)
+          rail match
+            case None => sys.error(s"cannot update because rail not found: $rail and $c, $rails")
+            case Some(r) =>
+              val nextCart = c.computeSwitch(r.switch)
+              if acc.map(_.loc).contains(nextCart.loc) || t.map(_.loc).contains(nextCart.loc) then
+                (Some(nextCart.loc), acc)  // crash happens so return location
+              else
+                go(t, nextCart +: acc)     // continue updating carts movement
         case Vector() => (None, acc.reverse)
 
     val (loc, newCarts): (Option[Point], Vector[Cart]) = go(carts)
@@ -133,21 +118,22 @@ object day13 extends App:
     def go(cs: Vector[Cart], acc: Vector[Cart] = Vector.empty): Vector[Cart] =
       cs match
         case c +: t =>
-          // check if current cart reached other cart location. In that case delete carts and continue
-          if carts.map(_.loc).count(_ == c.loc) > 1 then go(t.filter(_.loc != c.loc), acc)
-
-          // continue updating the current cart
-          else
-            val rail: Option[Rail] = rails.find(r => r.loc == c.loc)
-            rail match
-              case None => sys.error(s"cannot update because rail not found: $rail and $c, $rails")
-              case Some(r) => go(t, c.computeSwitch(r.switch) +: acc)
+          // update this cart based on rail it's on
+          val rail: Option[Rail] = rails.find(r => r.loc == c.loc)
+          rail match
+            case None => sys.error(s"cannot update because rail not found: $rail and $c, $rails")
+            case Some(r) =>
+              // if cart is at same location of other cart then delete this cart and other cart. else continue
+              val nextCart = c.computeSwitch(r.switch)
+              if acc.map(_.loc).contains(nextCart.loc) || t.map(_.loc).contains(nextCart.loc) then
+                go(t.filter(_.loc != nextCart.loc), acc.filter(_.loc != nextCart.loc))
+              else
+                go(t, nextCart +: acc)
         case Vector() => acc.reverse
 
-    val newCarts: Vector[Cart] = go(carts)
-    if newCarts.length == 1 then
-      newCarts.head
+    if carts.length == 1 then carts.head
     else
+      val newCarts: Vector[Cart] = go(carts)
       simulateTrain2(newCarts.sortBy(_.loc.x), rails)
 
 
