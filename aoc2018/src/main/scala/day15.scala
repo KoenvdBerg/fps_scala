@@ -15,9 +15,12 @@ object day15 extends App:
 
   case class Soldier(unit: Char, loc: Point, hp: Int, pwr: Int):
 
-    def enemyAdjacent(targets: Vector[Soldier]): Boolean =
-      val adjacent: Set[Point] = this.loc.adjacent().intersect(targets.map(_.loc).toSet)
-      adjacent.nonEmpty
+    def adjacentEnemies(targets: Vector[Soldier]): Vector[Soldier] =
+      val coordsEnemies: Set[Point] = this
+        .loc
+        .adjacent()
+        .intersect(targets.map(_.loc).toSet)
+      targets.filter(t => coordsEnemies.contains(t.loc))
 
     def nonSelfTargets(army: Vector[Soldier]): Vector[Soldier] =
       army.filter(s => s.unit != this.unit)
@@ -35,19 +38,50 @@ object day15 extends App:
 
     def move(army: Vector[Soldier], obstacles: Vector[Point]): Soldier =
       val targets: Vector[Soldier] = nonSelfTargets(army)
-      if enemyAdjacent(targets) then this    // skip expensive computation of pathFinding
+      if adjacentEnemies(targets).nonEmpty then this    // skip expensive computation of pathFinding
       else
         val path: Option[Vector[Point]] = findClosestTarget(targets, obstacles)
         path match
           case Some(p) => Soldier(this.unit, p(p.length-2), this.hp, this.pwr)
           case None    => this
 
+    def attack(army: Vector[Soldier]): Option[Soldier] =
+      val nearTargets: Vector[Soldier] = adjacentEnemies(nonSelfTargets(army))
+      if nearTargets.isEmpty then None // no targets in reach, return None
+      else
+        // TODO in case of draw in HP select in reading order
+        val selected: Soldier = nearTargets.minBy(_.hp)
+        Some(Soldier(selected.unit, selected.loc, selected.hp - this.pwr, selected.pwr))
+
+
+  object Soldier:
+
+    def updateObstacles(obs: Vector[(Point, Char)], old: Soldier, next: Soldier)(action: String): Vector[(Point, Char)] =
+      val deletedObs: Vector[(Point, Char)] = obs.filter(_._1 != old.loc)
+      action match
+        case "remove" => deletedObs
+        case "update" => (next.loc, next.unit) +: deletedObs
+
+    def updateArmy(army: Vector[Soldier], hit: Soldier)(action: String): Vector[Soldier] =
+      val hitIndex: Int = army.indexWhere(_.loc == hit.loc)  // search if hit soldier is present
+      if hitIndex == -1 then army        // hit soldier not present then return unchanged army
+      else                               // hit soldier is present, change soldier
+        val (mem, t) = army.splitAt(hitIndex)
+        val newt = (t, action) match
+          case (_ +: t, "remove")    => t            // soldier is changed to soldier with reduced HP in hit
+          case (_ +: t, "update")    => hit +: t     // soldier is changed to soldier with reduced HP in hit
+          case (Vector(_), "remove") => Vector()     // soldier is changed to soldier with reduced HP in hit
+          case (Vector(_), "update") => Vector(hit)  // soldier is changed to soldier with reduced HP in hit
+          case (Vector(), _)         => Vector()
+          case _                     => sys.error("please inspect updateArmy error")
+        mem ++: newt
+
 
   private val (army, obstacles): (Vector[Soldier], Vector[(Point, Char)]) =
 
     def parseArmy(s: Char, x: Int, y: Int): Option[Soldier] = s match
-      case 'G' => Some(Soldier('G', Point(x, y), 200, 3))
-      case 'E' => Some(Soldier('E', Point(x, y), 200, 3))
+      case 'G' => Some(Soldier('G', Point(x, y), 20, 3))
+      case 'E' => Some(Soldier('E', Point(x, y), 20, 3))
       case _ => None
 
     def parseObstacles(s: Char, x: Int, y: Int): Option[(Point, Char)] = s match
@@ -64,34 +98,52 @@ object day15 extends App:
       infile.flatMap((ss, y) => ss.zipWithIndex.flatMap((cc, x) => parseObstacles(cc, x, y)))
     )
 
-  def updateObstacles(obs: Vector[(Point, Char)], old: Soldier, next: Soldier): Vector[(Point, Char)] =
-    val deletedObs: Vector[(Point, Char)] = obs.filter(_._1 != old.loc)
-    (next.loc, next.unit) +: deletedObs
 
 
   def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)], nRounds: Int): Vector[Soldier] =
 
     def round(startArmy: Vector[Soldier], obs: Vector[(Point, Char)],
               acc: Vector[Soldier] = Vector.empty): (Vector[(Point, Char)], Vector[Soldier]) =
-
       startArmy match
         case s +: t =>
+
+          // making a move
           val newS: Soldier = s.move(acc ++: t, obs.map(_._1))
-          val newObs: Vector[(Point, Char)] = updateObstacles(obs, s, newS)
-          round(t, newObs, newS +: acc)
+          val newObs: Vector[(Point, Char)] = Soldier.updateObstacles(obs, s, newS)("update")
+
+
+          // attack
+          val hitSoldier: Option[Soldier] = newS.attack(acc ++: t)
+
+          hitSoldier match
+            case Some(ss) if ss.hp <= 0 =>
+              val newt: Vector[Soldier] = Soldier.updateArmy(t, ss)("remove")
+              val newacc: Vector[Soldier] = Soldier.updateArmy(acc, ss)("remove")
+              val newObsRem: Vector[(Point, Char)] = Soldier.updateObstacles(obs, ss, ss)("remove")
+              round(newt, newObsRem, newS +: newacc)
+
+            case Some(ss) =>
+              val newt: Vector[Soldier] = Soldier.updateArmy(t, ss)("update")
+              val newacc: Vector[Soldier] = Soldier.updateArmy(acc, ss)("update")
+              round(newt, newObs, newS +: newacc)
+
+            case _ =>
+              round(t, newObs, newS +: acc)
+
         case Vector() => (obs, acc)
         case _ => sys.error("round couldn't be figured out, plz investigate")
 
     if nRounds <= 0 then army
     else
       Point.print2dGrid(obstacles)
+      println(army.map(_.hp).sum)
       val (nextObs, nextArmy): (Vector[(Point, Char)], Vector[Soldier]) =
         round(army.sortBy(p => p.loc.toTuple.swap), obstacles)
       simulate(nextArmy, nextObs, nRounds - 1)
 
 
 
-  simulate(army, obstacles, 4)
+  simulate(army, obstacles, 10)
 
 
   private val answer1 = None
