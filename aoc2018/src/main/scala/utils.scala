@@ -28,6 +28,7 @@ object Grid2D:
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
     // breadth first search algorithm
+    // TODO: update this badboy to work with multiple targets, returning the one that's closest
     def -->(target: Point, obstacles: Vector[Point]): Option[Vector[Point]] =
       val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
       var queue: mutable.Queue[Vector[Point]] = mutable.Queue[Vector[Point]](Vector(this))

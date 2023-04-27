@@ -107,22 +107,26 @@ object day15 extends App:
       startArmy match
         case s +: t =>
           // making a move
-          println(s)
           val newS: Soldier = s.move(acc ++: t, obs.map(_._1))
           val newObs: Vector[(Point, Char)] = Soldier.updateObstacles(obs, s, newS)("update")
 
           // attack
           val hitSoldier: Option[Soldier] = newS.attack(acc ++: t)
+
           hitSoldier match
-            case None => round(t, newObs, newS +: acc)
+            case Some(ss) if ss.hp <= 0 =>
+              val newt: Vector[Soldier] = Soldier.updateArmy(t, ss)("remove")
+              val newacc: Vector[Soldier] = Soldier.updateArmy(acc, ss)("remove")
+              val newObsRem: Vector[(Point, Char)] = Soldier.updateObstacles(obs, ss, ss)("remove")
+              round(newt, newObsRem, newS +: newacc)
+
             case Some(ss) =>
-              val newt: String => Vector[Soldier] = Soldier.updateArmy(t, ss)
-              val newacc: String => Vector[Soldier] = Soldier.updateArmy(acc, ss)
-              if ss.hp <= 0 then
-                val newObsRem: Vector[(Point, Char)] = Soldier.updateObstacles(newObs, ss, ss)("remove")
-                round(newt("remove"), newObsRem, newS +: newacc("remove"))
-              else
-                round(newt("update"), newObs, newS +: newacc("update"))
+              val newt: Vector[Soldier] = Soldier.updateArmy(t, ss)("update")
+              val newacc: Vector[Soldier] = Soldier.updateArmy(acc, ss)("update")
+              round(newt, newObs, newS +: newacc)
+
+            case _ =>
+              round(t, newObs, newS +: acc)
 
         case Vector() => (obs, acc)
         case _ => sys.error("round couldn't be figured out, plz investigate")
