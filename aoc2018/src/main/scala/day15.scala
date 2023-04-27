@@ -80,8 +80,8 @@ object day15 extends App:
   private val (army, obstacles): (Vector[Soldier], Vector[(Point, Char)]) =
 
     def parseArmy(s: Char, x: Int, y: Int): Option[Soldier] = s match
-      case 'G' => Some(Soldier('G', Point(x, y), 20, 3))
-      case 'E' => Some(Soldier('E', Point(x, y), 20, 3))
+      case 'G' => Some(Soldier('G', Point(x, y), 200, 3))
+      case 'E' => Some(Soldier('E', Point(x, y), 200, 3))
       case _ => None
 
     def parseObstacles(s: Char, x: Int, y: Int): Option[(Point, Char)] = s match
@@ -100,53 +100,51 @@ object day15 extends App:
 
 
 
-  def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)], nRounds: Int): Vector[Soldier] =
+  def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)], nRounds: Int = 0): (Int, Vector[Soldier]) =
 
     def round(startArmy: Vector[Soldier], obs: Vector[(Point, Char)],
               acc: Vector[Soldier] = Vector.empty): (Vector[(Point, Char)], Vector[Soldier]) =
       startArmy match
         case s +: t =>
-
           // making a move
+          println(s)
           val newS: Soldier = s.move(acc ++: t, obs.map(_._1))
           val newObs: Vector[(Point, Char)] = Soldier.updateObstacles(obs, s, newS)("update")
 
-
           // attack
           val hitSoldier: Option[Soldier] = newS.attack(acc ++: t)
-
           hitSoldier match
-            case Some(ss) if ss.hp <= 0 =>
-              val newt: Vector[Soldier] = Soldier.updateArmy(t, ss)("remove")
-              val newacc: Vector[Soldier] = Soldier.updateArmy(acc, ss)("remove")
-              val newObsRem: Vector[(Point, Char)] = Soldier.updateObstacles(obs, ss, ss)("remove")
-              round(newt, newObsRem, newS +: newacc)
-
+            case None => round(t, newObs, newS +: acc)
             case Some(ss) =>
-              val newt: Vector[Soldier] = Soldier.updateArmy(t, ss)("update")
-              val newacc: Vector[Soldier] = Soldier.updateArmy(acc, ss)("update")
-              round(newt, newObs, newS +: newacc)
-
-            case _ =>
-              round(t, newObs, newS +: acc)
+              val newt: String => Vector[Soldier] = Soldier.updateArmy(t, ss)
+              val newacc: String => Vector[Soldier] = Soldier.updateArmy(acc, ss)
+              if ss.hp <= 0 then
+                val newObsRem: Vector[(Point, Char)] = Soldier.updateObstacles(newObs, ss, ss)("remove")
+                round(newt("remove"), newObsRem, newS +: newacc("remove"))
+              else
+                round(newt("update"), newObs, newS +: newacc("update"))
 
         case Vector() => (obs, acc)
         case _ => sys.error("round couldn't be figured out, plz investigate")
 
-    if nRounds <= 0 then army
+    Point.print2dGrid(obstacles)
+    println(army.map(_.hp).sum)
+
+    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0 then (nRounds-1, army)
     else
-      Point.print2dGrid(obstacles)
-      println(army.map(_.hp).sum)
       val (nextObs, nextArmy): (Vector[(Point, Char)], Vector[Soldier]) =
         round(army.sortBy(p => p.loc.toTuple.swap), obstacles)
-      simulate(nextArmy, nextObs, nRounds - 1)
+      simulate(nextArmy, nextObs, nRounds + 1)
 
 
 
-  simulate(army, obstacles, 10)
 
 
-  private val answer1 = None
+
+  private val (rounds, winningForces) = simulate(army, obstacles)
+  println(rounds)
+  println(winningForces)
+  private val answer1 = rounds * winningForces.map(_.hp).sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
