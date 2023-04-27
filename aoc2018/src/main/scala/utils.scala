@@ -5,17 +5,27 @@ import scala.collection.mutable
 object Grid2D:
 
   case class Point(x: Int, y: Int):
-    def adjacent: Set[Point] =
-      Set(
-        Point(x - 1, y),
-        Point(x + 1, y),
-        Point(x, y - 1),
-        Point(x, y + 1)
-      )
+    def adjacent(target: Point = Point(0,0)): Set[Point] =
+      if this < target then
+        Set(
+          Point(x + 1, y),
+          Point(x, y - 1),
+          Point(x - 1, y),
+          Point(x, y + 1)
+        )
+      else
+        Set(
+          Point(x, y - 1),
+          Point(x - 1, y),
+          Point(x + 1, y),
+          Point(x, y + 1)
+        )
 
     def toTuple: (Int, Int) = (this.x, this.y)
 
     def +(p2: Point): Point = Point(x + p2.x, y + p2.y)
+
+    def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
     // breadth first search algorithm
     def -->(target: Point, obstacles: Vector[Point]): Option[Vector[Point]] =
@@ -31,7 +41,7 @@ object Grid2D:
           if thisPoint == target then Some(thisPath) // exit condition when target is reached
           else
             val next: Set[Point] = thisPoint
-              .adjacent // compute the adjacent Points
+              .adjacent(target) // compute the adjacent Points
               .diff(seen) // filter out the points already visited
             queue = queue ++ next.map(n => n +: thisPath)
             loop()

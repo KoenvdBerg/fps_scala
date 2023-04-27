@@ -16,16 +16,22 @@ object day15 extends App:
   case class Soldier(unit: Char, loc: Point, hp: Int, pwr: Int):
 
     def enemyAdjacent(targets: Vector[Soldier]): Boolean =
-      val adjacent: Set[Point] = this.loc.adjacent.intersect(targets.map(_.loc).toSet)
+      val adjacent: Set[Point] = this.loc.adjacent().intersect(targets.map(_.loc).toSet)
       adjacent.nonEmpty
 
     def nonSelfTargets(army: Vector[Soldier]): Vector[Soldier] =
       army.filter(s => s.unit != this.unit)
 
     def findClosestTarget(targets: Vector[Soldier], obstacles: Vector[Point]): Option[Vector[Point]] =
-      val allPaths: Vector[Vector[Point]] = targets.map(_.loc).flatMap(t => this.loc --> (t, obstacles.filter(_ != t)))
+      val allPaths: Vector[Vector[Point]] =
+        targets
+          .map(_.loc)
+          .flatMap(t => this.loc --> (t, obstacles.filter(_ != t)))
       if allPaths.isEmpty then None
-      else Some(allPaths.minBy(_.length))
+      else
+        val minLen: Int = allPaths.minBy(_.length).length
+        val selection: Vector[Point] = allPaths.filter(_.length == minLen).minBy(p => p.map(_.y).sum)
+        Some(selection)
 
     def move(army: Vector[Soldier], obstacles: Vector[Point]): Soldier =
       val targets: Vector[Soldier] = nonSelfTargets(army)
@@ -40,8 +46,8 @@ object day15 extends App:
   private val (army, obstacles): (Vector[Soldier], Vector[(Point, Char)]) =
 
     def parseArmy(s: Char, x: Int, y: Int): Option[Soldier] = s match
-      case 'G' => Some(Soldier('G', Point(x, y), 300, 3))
-      case 'E' => Some(Soldier('E', Point(x, y), 300, 3))
+      case 'G' => Some(Soldier('G', Point(x, y), 200, 3))
+      case 'E' => Some(Soldier('E', Point(x, y), 200, 3))
       case _ => None
 
     def parseObstacles(s: Char, x: Int, y: Int): Option[(Point, Char)] = s match
@@ -58,25 +64,35 @@ object day15 extends App:
       infile.flatMap((ss, y) => ss.zipWithIndex.flatMap((cc, x) => parseObstacles(cc, x, y)))
     )
 
-  def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)]): Vector[Soldier] =
+  def updateObstacles(obs: Vector[(Point, Char)], old: Soldier, next: Soldier): Vector[(Point, Char)] =
+    val deletedObs: Vector[(Point, Char)] = obs.filter(_._1 != old.loc)
+    (next.loc, next.unit) +: deletedObs
 
-    Point.print2dGrid(obstacles)
 
-    def round(startArmy: Vector[Soldier], acc: Vector[Soldier] = Vector.empty): Vector[Soldier] =
+  def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)], nRounds: Int): Vector[Soldier] =
+
+    def round(startArmy: Vector[Soldier], obs: Vector[(Point, Char)],
+              acc: Vector[Soldier] = Vector.empty): (Vector[(Point, Char)], Vector[Soldier]) =
 
       startArmy match
         case s +: t =>
-          val newS: Soldier = s.move(acc ++: t, obstacles.map(_._1))
-          round(t, newS +: acc)
-        case Vector() => acc
-    val updated: Vector[Soldier] = round(army.sortBy(p => p.loc.toTuple))
-    val nextObstacles: Vector[(Point, Char)] = obstacles.filter(o => ".#".contains(o._2)) ++ updated.map(f => (f.loc, f.unit))
-    Point.print2dGrid(nextObstacles)
-    updated
+          val newS: Soldier = s.move(acc ++: t, obs.map(_._1))
+          val newObs: Vector[(Point, Char)] = updateObstacles(obs, s, newS)
+          round(t, newObs, newS +: acc)
+        case Vector() => (obs, acc)
+        case _ => sys.error("round couldn't be figured out, plz investigate")
+
+    if nRounds <= 0 then army
+    else
+      Point.print2dGrid(obstacles)
+      val (nextObs, nextArmy): (Vector[(Point, Char)], Vector[Soldier]) =
+        round(army.sortBy(p => p.loc.toTuple.swap), obstacles)
+      simulate(nextArmy, nextObs, nRounds - 1)
 
 
 
-  simulate(army, obstacles)
+  simulate(army, obstacles, 4)
+
 
   private val answer1 = None
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
@@ -144,3 +160,20 @@ object day15 extends App:
 //          Some(allPaths.minBy(p => p._1)) // select path with shortest path length
 //
 //  go(source, obstacles, Path(0, Vector.empty))
+
+//def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)], nRounds: Int): Vector[Soldier] =
+//
+//  def round(startArmy: Vector[Soldier], acc: Vector[Soldier] = Vector.empty): Vector[Soldier] =
+//
+//    startArmy match
+//      case s +: t =>
+//        val newS: Soldier = s.move(acc ++: t, obstacles.map(_._1))
+//        round(t, newS +: acc)
+//      case Vector() => acc
+//
+//  if nRounds <= 0 then army
+//  else
+//    Point.print2dGrid(obstacles)
+//    val updated: Vector[Soldier] = round(army.sortBy(p => p.loc.toTuple))
+//    val nextObstacles: Vector[(Point, Char)] = obstacles.filter(o => ".#".contains(o._2)) ++ updated.map(f => (f.loc, f.unit))
+//    simulate(updated, nextObstacles, nRounds - 1)
