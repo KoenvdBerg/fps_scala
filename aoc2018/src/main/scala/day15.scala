@@ -1,29 +1,8 @@
-
-/**
- * IDEAS:
- *
- * move order:
- * 1. scan and attack if possible
- * 2. no attack possible, looking to move
- *
- * round ends after all units have done something that round
- *
- * move function contains:
- * - [X] blocked by walls
- * - [ ] blocked by other enemies
- * - [ ] check if adjacent to an enemy as to skip expensive computation of pathfinding
- * - [ ] move respecting reading order if tied distances
- * - [X] no move possible --> just stay where it is and and turn
- *
- * attack function contains:
- * - select target with fewest HP, tied --> respect reading order
- * - target dies, square becomes Open and creature vanishes
- */
-
 import scala.io.*
 import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
+import aoc2018.Grid2D.Point
 
 
 object day15 extends App:
@@ -34,43 +13,7 @@ object day15 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  case class Point(x: Int, y: Int):
-    def adjacent: Set[Point] =
-      Set(
-        Point(x - 1, y),
-        Point(x + 1, y),
-        Point(x, y - 1),
-        Point(x, y + 1)
-      )
-
-    def +(p2: Point): Point = Point(x + p2.x, y + p2.y)
-
-    // breadth first search algorithm
-    def -->(target: Point, obstacles: Set[Point]): Option[Vector[Point]] =
-
-      val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-      var queue: mutable.Queue[Vector[Point]] = mutable.Queue[Vector[Point]](Vector(this))
-
-      def loop(): Option[Vector[Point]] =
-        if queue.isEmpty then None      // exit condition when no path can be found
-        else
-          val thisPath = queue.dequeue()
-          val thisPoint = thisPath.head
-          seen += thisPoint
-          if thisPoint == target then Some(thisPath)  // exit condition when target is reached
-          else
-            val next: Set[Point] = thisPoint
-              .adjacent             // compute the adjacent Points
-              .diff(seen)           // filter out the points already visited
-            queue = queue ++ next.map(n => n +: thisPath)
-            loop()
-      loop()
-
-  sealed trait Infantry
-  case object Goblin extends Infantry
-  case object Elve extends Infantry
-
-  case class Soldier(unit: Infantry, loc: Point, hp: Int, pwr: Int):
+  case class Soldier(unit: Char, loc: Point, hp: Int, pwr: Int):
 
     def enemyAdjacent(targets: Vector[Soldier]): Boolean =
       val adjacent: Set[Point] = this.loc.adjacent.intersect(targets.map(_.loc).toSet)
@@ -79,12 +22,12 @@ object day15 extends App:
     def nonSelfTargets(army: Vector[Soldier]): Vector[Soldier] =
       army.filter(s => s.unit != this.unit)
 
-    def findClosestTarget(targets: Vector[Soldier], obstacles: Set[Point]): Option[Vector[Point]] =
-      val allPaths: Vector[Vector[Point]] = targets.map(_.loc).flatMap(t => this.loc --> (t, obstacles))
+    def findClosestTarget(targets: Vector[Soldier], obstacles: Vector[Point]): Option[Vector[Point]] =
+      val allPaths: Vector[Vector[Point]] = targets.map(_.loc).flatMap(t => this.loc --> (t, obstacles.filter(_ != t)))
       if allPaths.isEmpty then None
       else Some(allPaths.minBy(_.length))
 
-    def move(army: Vector[Soldier], obstacles: Set[Point]): Soldier =
+    def move(army: Vector[Soldier], obstacles: Vector[Point]): Soldier =
       val targets: Vector[Soldier] = nonSelfTargets(army)
       if enemyAdjacent(targets) then this    // skip expensive computation of pathFinding
       else
@@ -94,16 +37,16 @@ object day15 extends App:
           case None    => this
 
 
-  private val (infantry, obstacles): (Vector[Soldier], Set[Point]) =
+  private val (army, obstacles): (Vector[Soldier], Vector[(Point, Char)]) =
 
-    def parseInfantry(s: Char, x: Int, y: Int): Option[Soldier] = s match
-      case 'G' => Some(Soldier(Goblin, Point(x, y), 300, 3))
-      case 'E' => Some(Soldier(Elve, Point(x, y), 300, 3))
+    def parseArmy(s: Char, x: Int, y: Int): Option[Soldier] = s match
+      case 'G' => Some(Soldier('G', Point(x, y), 300, 3))
+      case 'E' => Some(Soldier('E', Point(x, y), 300, 3))
       case _ => None
 
-    def parseObstacles(s: Char, x: Int, y: Int): Option[Point] = s match
-      case '#' => Some(Point(x, y))
-      case _ => None
+    def parseObstacles(s: Char, x: Int, y: Int): Option[(Point, Char)] = s match
+      case '.' => None
+      case _   => Some((Point(x, y), s))
 
     val infile = Source
       .fromResource(s"day$day.txt")
@@ -111,54 +54,30 @@ object day15 extends App:
       .toVector
       .zipWithIndex
     (
-      infile.flatMap((ss, y) => ss.zipWithIndex.flatMap((cc, x) => parseInfantry(cc, x, y))),
-      infile.flatMap((ss, y) => ss.zipWithIndex.flatMap((cc, x) => parseObstacles(cc, x, y))).toSet
+      infile.flatMap((ss, y) => ss.zipWithIndex.flatMap((cc, x) => parseArmy(cc, x, y))),
+      infile.flatMap((ss, y) => ss.zipWithIndex.flatMap((cc, x) => parseObstacles(cc, x, y)))
     )
 
-  def simulate(army: Vector[Soldier], obstacles: Set[Point]): Vector[Soldier] =
+  def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)]): Vector[Soldier] =
+
+    Point.print2dGrid(obstacles)
 
     def round(startArmy: Vector[Soldier], acc: Vector[Soldier] = Vector.empty): Vector[Soldier] =
 
-    // TODO: make sure that soldiers are also objects
-
       startArmy match
         case s +: t =>
-          val newS: Soldier = s.move(acc ++: t, obstacles)
+          val newS: Soldier = s.move(acc ++: t, obstacles.map(_._1))
           round(t, newS +: acc)
-        case Vector() => acc.sortBy(p => (p.loc.x, p.loc.y))
+        case Vector() => acc
+    val updated: Vector[Soldier] = round(army.sortBy(p => p.loc.toTuple))
+    val nextObstacles: Vector[(Point, Char)] = obstacles.filter(o => ".#".contains(o._2)) ++ updated.map(f => (f.loc, f.unit))
+    Point.print2dGrid(nextObstacles)
+    updated
 
-    round(army.sortBy(p => (p.loc.x, p.loc.y)))
 
-  def print2dGrid(army: Vector[Soldier], obstacles: Set[Point]): Unit =
-    val map: Set[Point] = obstacles | army.map(_.loc).toSet
-    val xMax: Int = map.maxBy(_.x).x
-    val yMax: Int = map.maxBy(_.y).y
 
-    val grid: Vector[Point] = (for {
-      x <- Range(0, xMax+1).toList
-      y <- Range(0, yMax+1).toList
-    } yield Point(x, y)).toVector
+  simulate(army, obstacles)
 
-    def go(grid: Vector[Point], n: Int = 0): Unit = grid match
-      case c +: t =>
-        val s: Option[Soldier] = army.find(_.loc == c)
-        val w: Option[Point] = obstacles.find(_ == c)
-        if n % (xMax+1) == 0 then println() else ()
-        (s, w) match
-          case (None, None) => print(" ")
-          case (None, Some(_)) => print("#")
-          case (Some(s), None) => s.unit match
-            case Elve => print("E")
-            case Goblin => print("G")
-        go(t, n + 1)
-      case Vector() => println()
-    go(grid)
-
-// TODO: then update the print function to only print using obstacles
-
-  println(infantry)
-//  println(simulate(infantry, obstacles))
-  print2dGrid(infantry, obstacles)
   private val answer1 = None
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
