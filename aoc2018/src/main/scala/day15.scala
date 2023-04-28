@@ -18,31 +18,35 @@ object day15 extends App:
     def adjacentEnemies(targets: Vector[Soldier]): Vector[Soldier] =
       val coordsEnemies: Set[Point] = this
         .loc
-        .adjacent()
+        .adjacent
         .intersect(targets.map(_.loc).toSet)
       targets.filter(t => coordsEnemies.contains(t.loc))
 
     def nonSelfTargets(army: Vector[Soldier]): Vector[Soldier] =
       army.filter(s => s.unit != this.unit)
 
-    def findClosestTarget(targets: Vector[Soldier], obstacles: Vector[Point]): Option[Vector[Point]] =
-      val allPaths: Vector[Vector[Point]] =
-        targets
-          .map(_.loc)
-          .flatMap(t => this.loc --> (t, obstacles.filter(_ != t)))
-      if allPaths.isEmpty then None
+    def findClosestTarget(targets: Vector[Soldier], obstacles: Vector[Point]): Option[Point] =
+      val targetLocs: Vector[Point] = targets.map(_.loc)
+      val closestEnemyPath: Vector[Vector[Point]] = this.loc.pathsToTargets(targetLocs, obstacles.filter(!targetLocs.contains(_)))
+      if closestEnemyPath.isEmpty then None   // no path to any target possible
+      else if closestEnemyPath.count(_.nonEmpty) >= 2 then
+
+        // select target first in reading order:
+        val tStep = closestEnemyPath.map(_.head).minBy(_.toTuple.swap)
+
+        // select step in reading order:
+        val step = closestEnemyPath.filter(_.head == tStep).map(p => p(p.length-2))
+        Some(step.minBy(_.toTuple.swap))
       else
-        val minLen: Int = allPaths.minBy(_.length).length
-        val selection: Vector[Point] = allPaths.filter(_.length == minLen).minBy(p => p.map(_.y).sum)
-        Some(selection)
+        closestEnemyPath.map(p => p(p.length-2)).headOption
 
     def move(army: Vector[Soldier], obstacles: Vector[Point]): Soldier =
       val targets: Vector[Soldier] = nonSelfTargets(army)
       if adjacentEnemies(targets).nonEmpty then this    // skip expensive computation of pathFinding
       else
-        val path: Option[Vector[Point]] = findClosestTarget(targets, obstacles)
+        val path: Option[Point] = findClosestTarget(targets, obstacles)
         path match
-          case Some(p) => Soldier(this.unit, p(p.length-2), this.hp, this.pwr)
+          case Some(p) => Soldier(this.unit, p, this.hp, this.pwr)
           case None    => this
 
     def attack(army: Vector[Soldier]): Option[Soldier] =
@@ -50,8 +54,14 @@ object day15 extends App:
       if nearTargets.isEmpty then None // no targets in reach, return None
       else
         // TODO in case of draw in HP select in reading order
-        val selected: Soldier = nearTargets.minBy(_.hp)
-        Some(Soldier(selected.unit, selected.loc, selected.hp - this.pwr, selected.pwr))
+        val minHP: Int = nearTargets.minBy(_.hp).hp
+        if nearTargets.count(_.hp == minHP) >= 2 then
+          val selS: Soldier = nearTargets.filter(_.hp == minHP).minBy(_.loc.toTuple.swap)
+          Some(Soldier(selS.unit, selS.loc, selS.hp - this.pwr, selS.pwr))
+        else
+          val selS: Soldier = nearTargets.minBy(_.hp)
+          Some(Soldier(selS.unit, selS.loc, selS.hp - this.pwr, selS.pwr))
+
 
 
   object Soldier:
@@ -68,9 +78,9 @@ object day15 extends App:
       else                               // hit soldier is present, change soldier
         val (mem, t) = army.splitAt(hitIndex)
         val newt = (t, action) match
-          case (_ +: t, "remove")    => t            // soldier is changed to soldier with reduced HP in hit
+          case (_ +: t, "remove")    => t            // soldier is removed because it's dead
           case (_ +: t, "update")    => hit +: t     // soldier is changed to soldier with reduced HP in hit
-          case (Vector(_), "remove") => Vector()     // soldier is changed to soldier with reduced HP in hit
+          case (Vector(_), "remove") => Vector()     // soldier is removed because it's dead
           case (Vector(_), "update") => Vector(hit)  // soldier is changed to soldier with reduced HP in hit
           case (Vector(), _)         => Vector()
           case _                     => sys.error("please inspect updateArmy error")
@@ -131,10 +141,12 @@ object day15 extends App:
         case Vector() => (obs, acc)
         case _ => sys.error("round couldn't be figured out, plz investigate")
 
+    println(army.sortBy(_.hp).map(p => (p.loc.x, p.loc.y, p.hp)).toSet)
+//    println(army.size)
     Point.print2dGrid(obstacles)
-    println(army.map(_.hp).sum)
+//    println(army.map(_.hp).sum)
 
-    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0 then (nRounds-1, army)
+    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0 || nRounds == 1 then (nRounds, army)
     else
       val (nextObs, nextArmy): (Vector[(Point, Char)], Vector[Soldier]) =
         round(army.sortBy(p => p.loc.toTuple.swap), obstacles)
@@ -143,13 +155,12 @@ object day15 extends App:
 
 
 
-
-
+//  println(obstacles.map(_._1))
   private val (rounds, winningForces) = simulate(army, obstacles)
   println(rounds)
-  println(winningForces)
+  println(winningForces.map(_.hp).sum)
   private val answer1 = rounds * winningForces.map(_.hp).sum
-  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
+  println(s"Answer day $day part 1: ${answer1} should be: 218272 [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
@@ -157,6 +168,19 @@ object day15 extends App:
 
   private val answer2 = None
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+
+
+/**
+ * TO SOLVE:
+ *
+ * ################################
+ * ###........G....#.....##...##..#
+ * ###...#.#####..........E......##
+ * ###.......#.E#..............####
+ * ##.....#....#.#####............#
+ * ################################
+ *
+ */
 
 // YARD:
 //sealed trait Infantry:
