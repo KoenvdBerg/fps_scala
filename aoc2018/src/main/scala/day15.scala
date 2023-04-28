@@ -31,11 +31,13 @@ object day15 extends App:
       if closestEnemyPath.isEmpty then None   // no path to any target possible
       else if closestEnemyPath.count(_.nonEmpty) >= 2 then
 
-        // select target first in reading order:
-        val tStep = closestEnemyPath.map(_.head).minBy(_.toTuple.swap)
+        // select square next to target first in reading order:
+//        println(closestEnemyPath)
+//        sys.exit(0)
+        val tStep = closestEnemyPath.map(i => i(1)).minBy(_.toTuple.swap)
 
         // select step in reading order:
-        val step = closestEnemyPath.filter(_.head == tStep).map(p => p(p.length-2))
+        val step = closestEnemyPath.filter(_(1) == tStep).map(p => p(p.length-2))
         Some(step.minBy(_.toTuple.swap))
       else
         closestEnemyPath.map(p => p(p.length-2)).headOption
@@ -141,12 +143,12 @@ object day15 extends App:
         case Vector() => (obs, acc)
         case _ => sys.error("round couldn't be figured out, plz investigate")
 
-    println(army.sortBy(_.hp).map(p => (p.loc.x, p.loc.y, p.hp)).toSet)
+//    println(army.sortBy(_.hp).map(p => (p.loc.x, p.loc.y, p.hp)).toSet)
 //    println(army.size)
-    Point.print2dGrid(obstacles)
+//    Point.print2dGrid(obstacles)
 //    println(army.map(_.hp).sum)
 
-    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0 || nRounds == 1 then (nRounds, army)
+    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0  then (nRounds-1, army)
     else
       val (nextObs, nextArmy): (Vector[(Point, Char)], Vector[Soldier]) =
         round(army.sortBy(p => p.loc.toTuple.swap), obstacles)
