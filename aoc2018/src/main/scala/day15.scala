@@ -3,6 +3,7 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 import aoc2018.Grid2D.Point
+import scala.annotation.tailrec
 
 
 object day15 extends App:
@@ -25,29 +26,30 @@ object day15 extends App:
     def nonSelfTargets(army: Vector[Soldier]): Vector[Soldier] =
       army.filter(s => s.unit != this.unit)
 
-    def findClosestTarget(targets: Vector[Soldier], obstacles: Vector[Point]): Option[Point] =
+    def findNextStep(targets: Vector[Soldier], obstacles: Vector[Point]): Option[Point] =
       val targetLocs: Vector[Point] = targets.map(_.loc)
-      val closestEnemyPath: Vector[Vector[Point]] = this.loc.pathsToTargets(targetLocs, obstacles.filter(!targetLocs.contains(_)))
-      if closestEnemyPath.isEmpty then None   // no path to any target possible
-      else if closestEnemyPath.count(_.nonEmpty) >= 2 then
-
-        // select square next to target first in reading order:
-//        println(closestEnemyPath)
-//        sys.exit(0)
-        val tStep = closestEnemyPath.map(i => i(1)).minBy(_.toTuple.swap)
-
-        // select step in reading order:
-        val step = closestEnemyPath.filter(_(1) == tStep).map(p => p(p.length-2))
-        Some(step.minBy(_.toTuple.swap))
+      val paths: LazyList[Vector[Point]] = this.loc.bfsSearch(targetLocs, obstacles.filter(!targetLocs.contains(_)))
+      if paths.isEmpty then None   // no path to any target possible
       else
-        closestEnemyPath.map(p => p(p.length-2)).headOption
+        val foundPaths: Vector[Vector[Point]] = targetLocs.flatMap(t => paths.find(vp => vp.head == t))
+        val minlen: Int = foundPaths.minBy(_.length).length    // due to order in bfs paths may have varying lengths
+        val shortestPaths: Vector[Vector[Point]] = foundPaths.filter(_.length == minlen)     // selecting shortest path
+        Some(handleMultipleShortPaths(shortestPaths).dropRight(1).last)  // penultimate point is step
+
+    def handleMultipleShortPaths(paths: Vector[Vector[Point]]): Vector[Point] =
+      if paths.length <= 1 then paths.head
+      else
+        val firstInOrder: Point = paths
+          .map(i => i(1))         // 2nd elem is point adjacent to target
+          .minBy(_.toTuple.swap)  // select the point that is first in reading order
+        paths.filter(_(1) == firstInOrder).head
 
     def move(army: Vector[Soldier], obstacles: Vector[Point]): Soldier =
       val targets: Vector[Soldier] = nonSelfTargets(army)
-      if adjacentEnemies(targets).nonEmpty then this    // skip expensive computation of pathFinding
+      if adjacentEnemies(targets).nonEmpty then this    // skip expensive computation of pathFinding when already next to a target
       else
-        val path: Option[Point] = findClosestTarget(targets, obstacles)
-        path match
+        val step: Option[Point] = findNextStep(targets, obstacles)
+        step match
           case Some(p) => Soldier(this.unit, p, this.hp, this.pwr)
           case None    => this
 
@@ -55,9 +57,8 @@ object day15 extends App:
       val nearTargets: Vector[Soldier] = adjacentEnemies(nonSelfTargets(army))
       if nearTargets.isEmpty then None // no targets in reach, return None
       else
-        // TODO in case of draw in HP select in reading order
         val minHP: Int = nearTargets.minBy(_.hp).hp
-        if nearTargets.count(_.hp == minHP) >= 2 then
+        if nearTargets.count(_.hp == minHP) >= 2 then  // handle reading order
           val selS: Soldier = nearTargets.filter(_.hp == minHP).minBy(_.loc.toTuple.swap)
           Some(Soldier(selS.unit, selS.loc, selS.hp - this.pwr, selS.pwr))
         else
@@ -78,8 +79,8 @@ object day15 extends App:
       val hitIndex: Int = army.indexWhere(_.loc == hit.loc)  // search if hit soldier is present
       if hitIndex == -1 then army        // hit soldier not present then return unchanged army
       else                               // hit soldier is present, change soldier
-        val (mem, t) = army.splitAt(hitIndex)
-        val newt = (t, action) match
+        val (mem, t) = army.splitAt(hitIndex)  // hit soldier is in head, mem holds preceding elements
+        val newt = (t, action) match                 // idea here is to update the tail with action on soldier
           case (_ +: t, "remove")    => t            // soldier is removed because it's dead
           case (_ +: t, "update")    => hit +: t     // soldier is changed to soldier with reduced HP in hit
           case (Vector(_), "remove") => Vector()     // soldier is removed because it's dead
@@ -143,24 +144,15 @@ object day15 extends App:
         case Vector() => (obs, acc)
         case _ => sys.error("round couldn't be figured out, plz investigate")
 
-//    println(army.sortBy(_.hp).map(p => (p.loc.x, p.loc.y, p.hp)).toSet)
-//    println(army.size)
-//    Point.print2dGrid(obstacles)
-//    println(army.map(_.hp).sum)
-
-    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0  then (nRounds-1, army)
+    if army.count(_.unit == 'G') <= 0 || army.count(_.unit == 'E') <= 0  then (nRounds-1, army)  // exit condition, an army is wiped from existence
+    else if army.count(_.unit == 'E') < elveAllies then (nRounds-1, army)  // added for optim part02
     else
       val (nextObs, nextArmy): (Vector[(Point, Char)], Vector[Soldier]) =
         round(army.sortBy(p => p.loc.toTuple.swap), obstacles)
       simulate(nextArmy, nextObs, nRounds + 1)
 
 
-
-
-//  println(obstacles.map(_._1))
   private val (rounds, winningForces) = simulate(army, obstacles)
-  println(rounds)
-  println(winningForces.map(_.hp).sum)
   private val answer1 = rounds * winningForces.map(_.hp).sum
   println(s"Answer day $day part 1: ${answer1} should be: 218272 [${System.currentTimeMillis - start1}ms]")
 
@@ -168,92 +160,29 @@ object day15 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  private val answer2 = None
-  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+  private val elveAllies = army.count(_.unit == 'E')
+  @tailrec
+  def sim2(elveAtk: Int = 4): (Int, Vector[Soldier]) =
+    val nextArmy: Vector[Soldier] = army.map {
+      case Soldier('E', l, _, _) => Soldier('E', l, 200, elveAtk)
+      case s@Soldier('G', _, _, _) => s
+    }
+    val (rounds2, winningForces2) = simulate(nextArmy, obstacles)
+    if winningForces2.count(_.unit == 'E') == elveAllies then (rounds2, winningForces2)
+    else sim2(elveAtk + 1)
 
+  private val (rounds2, winningForces2) = sim2()
+  private val answer2 = rounds2 * winningForces2.map(_.hp).sum
+  println(s"Answer day $day part 2: ${answer2} should be: 40861 [${System.currentTimeMillis - start2}ms]")
 
-/**
- * TO SOLVE:
- *
- * ################################
- * ###........G....#.....##...##..#
- * ###...#.#####..........E......##
- * ###.......#.E#..............####
- * ##.....#....#.#####............#
- * ################################
- *
- */
-
-// YARD:
-//sealed trait Infantry:
+// storage for the input below as it's the smallest scenario
+// that was problematic for me to handle.
 //
-//  def surrounding(field: Vector[Infantry]): Vector[Infantry] = this match
-//    case Goblin(_, _, loc) => field.filter(_ == Elve).filter()
+// ######
+// #.G..#
+// #.##.#
+// #.1.2#
+// ######
 //
-//case class Goblin(hp: Int, pwr: Int, loc: Point) extends Infantry
-//
-//case class Elve(hp: Int, pwr: Int, loc: Point) extends Infantry
-//def pathFinding2(source: Point, target: Point, obstacles: Set[Point]): Option[Path] =
-//
-//  val queue: mutable.Queue[Path] = mutable.Queue[Path](Path(0, Vector(source)))
-//  val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-//
-//  def loop(): Option[Path] =
-//    if queue.isEmpty then None
-//    else
-//      val path: Path = queue.dequeue()
-//      val thisPoint: Point = path.path.last
-//      if thisPoint == target then Some(path)
-//      else
-//        val next
-//
-//        for {
-//          cc <- thisPoint.adjacent.diff(seen)
-//        } do {
-//          seen += cc
-//          queue.enqueue(Path(path.len + 1, thisPoint +: path.path))
-//          loop()
-//        }
-//        None
-//
-//  loop()
-// Flooding algorithm
-//def pathFinding(source: Point, target: Point, obstacles: Set[Point]): Option[Path] =
-//
-//  def go(current: Point, visited: Set[Point], path: Path): Option[Path] =
-//    if current == target then Some(Path(path.len + 1, (current +: path.path).reverse))
-//    else
-//      println(path)
-//      val next: Set[Point] = current
-//        .adjacent // compute the adjacent Points
-//        .diff(visited) // filter out the points already visited
-//      if next.isEmpty then None // if next is empty then this path is a dead end, thus None
-//      else
-//        // here the final path is computed by appending each current path to the path trajectory, increasing path
-//        // length with 1. Also, the current path is added to the list of visited, and thus cannot be reached anymore.
-//        val allPaths: Set[Path] = next
-//          .flatMap(cc => go(cc, Set(current) ++ visited, Path(path.len + 1, current +: path.path)))
-//
-//        // here we select the shortest path to final destination
-//        if allPaths.isEmpty then None // if no viable path found then no path is possible to target, thus None
-//        else
-//          Some(allPaths.minBy(p => p._1)) // select path with shortest path length
-//
-//  go(source, obstacles, Path(0, Vector.empty))
-
-//def simulate(army: Vector[Soldier], obstacles: Vector[(Point, Char)], nRounds: Int): Vector[Soldier] =
-//
-//  def round(startArmy: Vector[Soldier], acc: Vector[Soldier] = Vector.empty): Vector[Soldier] =
-//
-//    startArmy match
-//      case s +: t =>
-//        val newS: Soldier = s.move(acc ++: t, obstacles.map(_._1))
-//        round(t, newS +: acc)
-//      case Vector() => acc
-//
-//  if nRounds <= 0 then army
-//  else
-//    Point.print2dGrid(obstacles)
-//    val updated: Vector[Soldier] = round(army.sortBy(p => p.loc.toTuple))
-//    val nextObstacles: Vector[(Point, Char)] = obstacles.filter(o => ".#".contains(o._2)) ++ updated.map(f => (f.loc, f.unit))
-//    simulate(updated, nextObstacles, nRounds - 1)
+// G to move, should move to Point(3,1) because the '.'
+// adjacent to target 2 is first in reading order.

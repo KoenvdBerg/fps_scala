@@ -1,5 +1,6 @@
 package aoc2018
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 object Grid2D:
@@ -19,63 +20,22 @@ object Grid2D:
 
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
-    // breadth first search algorithm
-    def -->(targets: Vector[Point], obstacles: Vector[Point]): Option[Vector[Point]] =
+    def bfsSearch(targets: Vector[Point], obstacles: Vector[Point]): LazyList[Vector[Point]] =
+      import Algorithms.bfs
       val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-      var queue: mutable.Queue[Vector[Point]] = mutable.Queue[Vector[Point]](Vector(this))
 
-      def loop(): Option[Vector[Point]] =
-        if queue.isEmpty then None // exit condition when no path can be found
-        else
-          val thisPath = queue.dequeue()
-          val thisPoint = thisPath.head
-          seen += thisPoint
-          if targets.contains(thisPoint) then Some(thisPath) // exit condition when target is reached
-          else
-            val next: Set[Point] = thisPoint
-              .adjacent // compute the adjacent Points
-              .diff(seen) // filter out the points already visited
-            next.map(seen += _)
-            queue = queue ++ next.map(n => n +: thisPath)
-            loop()
-
-      loop()
-
-    // from: https://stackoverflow.com/questions/41347337/how-to-implement-breadth-first-search-in-scala-with-fp
-    def bfs[A](s: LazyList[A], f: A => LazyList[A]): LazyList[A] =
-      if (s.isEmpty) s
-      else s.head #:: bfs(s.tail ++ f(s.head), f)
-
-
-    def pathsToTargets(targets: Vector[Point], obstacles: Vector[Point]): Vector[Vector[Point]] =
-      val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-      var found: Boolean = false
-      val begin = Vector(this)
-
-      def bfsAlgorithm: Vector[Point] => LazyList[Vector[Point]] =
+      def search: Vector[Point] => LazyList[Vector[Point]] =
         (p: Vector[Point]) =>
           val thisPoint: Point = p.head
+          val directions: Set[Point] = thisPoint.adjacent.diff(seen)
+          val next: Seq[Vector[Point]] = directions.map(n => n +: p).toSeq
           seen += thisPoint
-          if targets.contains(thisPoint) then
-            found = true
-            LazyList()
-          else
-            if found then
-              LazyList()
-            else
-              val viableDirs: Set[Point] = thisPoint.adjacent.diff(seen)
-              viableDirs.map(seen += _)
-              val next: Seq[Vector[Point]] = viableDirs.map(n => n +: p).toSeq
-              LazyList(next: _*)
+          directions.map(seen += _)
+          LazyList(next: _*)
 
-      val possiblePaths: LazyList[Vector[Point]] = bfs(LazyList(begin), bfsAlgorithm)
-      val pathsToTargets: Vector[Vector[Point]] = targets.flatMap(t => possiblePaths.find(vp => vp.head == t))
-      if pathsToTargets.isEmpty then
-        pathsToTargets
-      else
-        val shortestPath: Int = pathsToTargets.map(_.length).min
-        pathsToTargets.filter(_.length == shortestPath)
+      def earlyExit: Vector[Point] => Boolean = (p: Vector[Point]) => targets.contains(p.head)
 
+      bfs(LazyList(Vector(this)))(search, earlyExit)
 
 
   object Point:
@@ -92,44 +52,13 @@ object Grid2D:
 
       go(obstacles.sortBy(_._1.toTuple.swap))
 
-    def smallest(ps: Seq[Point]): Point =
-      def go(pps: Seq[Point], acc: Point = Point(Int.MaxValue, Int.MaxValue)): Point = pps match
-        case h +: t =>
-          if h < acc then go(t, h) else go(t, acc)
-        case Seq() => acc
-      go(ps)
 
+object Algorithms:
 
-// YARD:
-//def nearTarget(start: Point, target: Point, obstacles: Vector[Point]): LazyList[Point] =
-//  val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-//
-//  def bfsAlgorithm: Point => LazyList[Point] =
-//    (p: Point) =>
-//      seen += p
-//      val next = p.adjacent.diff(seen)
-//      LazyList(next.toSeq: _*)
-//
-//  val begin = Vector(start)
-//
-//  bfs(LazyList(begin), bfsAlgorithm)
-//def nearTarget(start: Point, target: Point, obstacles: Vector[Point]): LazyList[Vector[Point]] =
-//  val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-//  var found: Boolean = false
-//  val begin = Vector(start)
-//
-//  def bfsAlgorithm: Vector[Point] => LazyList[Vector[Point]] =
-//    (p: Vector[Point]) =>
-//      val thisPoint: Point = p.head
-//      if thisPoint == target then
-//        found = true
-//        LazyList()
-//      else if found then
-//        LazyList()
-//      else
-//        seen += thisPoint
-//        val viableDirs: Set[Point] = thisPoint.adjacent.diff(seen)
-//        val next: Seq[Vector[Point]] = viableDirs.map(n => n +: p).toSeq
-//        LazyList(next: _*)
-//
-//  bfs(LazyList(begin), bfsAlgorithm)
+  // Breath first search algorithm, generalized with early exit condition
+  // Inspired from: https://stackoverflow.com/questions/41347337/how-to-implement-breadth-first-search-in-scala-with-fp
+  @tailrec
+  final def bfs[A](queue: LazyList[A])(f: A => LazyList[A], exit: A => Boolean): LazyList[A] =
+    if queue.isEmpty then queue
+    else if exit(queue.head) then queue
+    else bfs(queue.tail ++ f(queue.head))(f, exit)
