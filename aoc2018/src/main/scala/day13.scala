@@ -12,15 +12,11 @@ object day13 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  def rotateVector[A](n: Int, s: Vector[A]): Vector[A] =
-    if s.isEmpty then s
-    else
-      val nbound: Int = n % s.length // skipping the full rotation rounds
-      if nbound < 0 then rotateVector(nbound + s.length, s)
-      else s.drop(nbound) ++ s.take(nbound)
 
   case class Point(x: Int, y: Int):
-    def add(p2: Point): Point = Point(x + p2.x, y + p2.y)
+    def +(p2: Point): Point = Point(x + p2.x, y + p2.y)
+
+
   sealed trait Switch
   case object Straight extends Switch
   case object Back extends Switch
@@ -31,13 +27,13 @@ object day13 extends App:
   case class Cart(loc: Point, dir: Point, intersect: Vector[Switch]):
 
     def update: Cart =
-      Cart(loc.add(dir), dir, intersect)
+      Cart(loc + dir, dir, intersect)
 
     def computeSwitch(turn: Switch): Cart =
       turn match
-        case Straight => straight.update
-        case Back => backwardSwitch.update
-        case Forward => forwardSwitch.update
+        case Straight  => straight.update
+        case Back      => backwardSwitch.update
+        case Forward   => forwardSwitch.update
         case Intersect => handleIntersect.update
     def forwardSwitch: Cart =
       Cart(loc, Point(dir.y, dir.x), intersect)
@@ -49,6 +45,14 @@ object day13 extends App:
       Cart(loc, dir, intersect)
 
     def handleIntersect: Cart =
+
+      def rotateVector[A](n: Int, s: Vector[A]): Vector[A] =
+        if s.isEmpty then s
+        else
+          val nbound: Int = n % s.length // skipping the full rotation rounds
+          if nbound < 0 then rotateVector(nbound + s.length, s)
+          else s.drop(nbound) ++ s.take(nbound)
+
       val newDir: Point = (intersect.head, dir) match
         case (Back, Point(0, _)) => backwardSwitch.dir
         case (Back, Point(_, 0)) => forwardSwitch.dir
