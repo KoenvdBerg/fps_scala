@@ -5,6 +5,53 @@ import scala.collection.mutable.Stack
 import aoc2018.Grid2D.Point
 import scala.annotation.tailrec
 
+/**
+ *
+ * Managed to compute both parts in under 1 second :).
+ *
+ * PART 01:
+ *
+ * Okay so this part took me a lot of time to get right, especially the moving around of the Elves and Goblins.
+ *
+ * The first issue I had was with performance. I managed to get the example cases right, but the bigger problem
+ * as presented in the input couldn't be computed. I had to rewrite the entire step determination algorithm.
+ *
+ * Turns out that a flooding algorithm is really slow, and that this problem required the breath first search
+ * algorithm. I made an implementation of that algorithm in the utils object, consisting of only 4 lines of code.
+ * I made this code inspired from a response on Stack Overflow. The algorithm uses LazyLists instead of queues and
+ * works rapidly. The implementation specific to this problem can be found under the Point case class.
+ *
+ * My implementation looks something like this: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#/media/File:Dijkstras_progress_animation.gif.
+ * The seen set holds the locations with walls or which are already visited. Each next iteration new possible ends
+ * are added to the queue. If the queue is empty, no path can be found. An early exit is possible when the closest
+ * target is found (out of a list of targets).
+ *
+ * After the correct implementation, I still didn't get the right answer, which led me to embark on a thorough
+ * debugging session in the movement of the Units. The case below presents the issue in the smallest form possible.
+ *
+ * ######
+ * #.G..#
+ * #.##.#
+ * #.1.2#
+ * ######
+ * (reading order defined by lowest y, and if equal y, lowest x coordinate)
+ *
+ * To which target, 1 or 2, should the goblin at G move? I thought target 1, because it's first in reading order.
+ * Incorrect!? Yes, because G should move to target 2 (at Point(3,1)) because the '.'. adjacent (above) to target 2 is first
+ * in reading order. So it's not about the reading order of the target, but about the reading order of the square
+ * adjacent to the target where the Goblin should end up.
+ *
+ * After debugging and solving this issue, I got another final score which was correct.
+ *
+ * PART 02:
+ *
+ * This part is trivial after solving part 1. I just ran the simulation multiple times, increasing the Elve atk power
+ * by 1 each iteration. If an Elve dies, the simulation halts prematurely, saving time. In my case, the Elves won
+ * without losing an ally if they had an atk power of 24.
+ *
+ *
+ *
+ */
 
 object day15 extends App:
 
@@ -175,14 +222,4 @@ object day15 extends App:
   private val answer2 = rounds2 * winningForces2.map(_.hp).sum
   println(s"Answer day $day part 2: ${answer2} should be: 40861 [${System.currentTimeMillis - start2}ms]")
 
-// storage for the input below as it's the smallest scenario
-// that was problematic for me to handle.
-//
-// ######
-// #.G..#
-// #.##.#
-// #.1.2#
-// ######
-//
-// G to move, should move to Point(3,1) because the '.'
-// adjacent to target 2 is first in reading order.
+
