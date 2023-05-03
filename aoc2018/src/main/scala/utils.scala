@@ -40,14 +40,14 @@ object Grid2D:
 
   object Point:
 
-    def print2dGrid(obstacles: Vector[(Point, Char)]): Unit =
+    def print2dGrid(obstacles: Vector[(Point, Char)], default: Char = '.'): Unit =
       val xMax: Int = obstacles.maxBy(_._1.x)._1.x
 
-      def go(obs: Vector[(Point, Char)], n: Int = 0): Unit = obs match
+      def go(obs: Vector[(Point, Char)], x: Int = 0, y: Int = 0): Unit = obs match
         case ob +: t =>
-          if n % (xMax + 1) == 0 then println() else ()
-          if n % (xMax + 1) == ob._1.x then {print(ob._2); go(t, n + 1)}
-          else {print('.'); go(obs, n + 1)}
+          if x == xMax + 1 then {println(); go(obs, 0, y + 1)}
+          else if x == ob._1.x && y == ob._1.y then {print(ob._2); go(t, x + 1, y)}
+          else {print(default); go(obs, x + 1, y)}
         case Vector() => println()
 
       go(obstacles.sortBy(_._1.toTuple.swap))
