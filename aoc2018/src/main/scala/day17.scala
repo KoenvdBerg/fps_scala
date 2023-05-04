@@ -49,6 +49,9 @@ object day17 extends App:
           Some(p)
 
     // TODO: let pourside be it's own recursive function that determines if it can pour further down at either end or if it hit a bassin
+    // TODO: seen can probably be immutable. It's not needed for pourDown and might not be needed for pourSide to add new water --> make seen immutable set
+    // TODO: queue can be part of the simulate() function to make it a pure function
+    // TODO: pourside should return if next step is down or if fully blocked so more side is needed with one step up.
     // based on findings adds either | or ~
     def pourSide(c: Point): Option[Set[Point]] =
       val sides: Set[Point] = c.adjacentSides.diff(seen)
@@ -67,6 +70,7 @@ object day17 extends App:
         val p = queue.dequeue()
         // TODO: make pourDown go up 1 when pourside hits wals on both ends
         // determine move
+        // TODO: make movement based on clay and not on seen
         val nextMove: Movement = if seen.contains(p.adjacentDown.head) then Side else Down
 
 
