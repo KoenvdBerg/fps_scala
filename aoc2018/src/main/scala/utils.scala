@@ -14,21 +14,16 @@ object Grid2D:
           Point(x, y + 1)
         )
 
-    def adjacentDown(obstacles: Set[Point]): Set[Point] =
-//      val below = obstacles.contains(Point(x, y+1))
-//      if below then Set(
-//        Point(x - 1, y),
-//        Point(x + 1, y)
-//      ) else Set(
-//        Point(x, y + 1)
-//      )
-
+    def adjacentDown: Set[Point] =
       Set(
-        Point(x, y + 1),
-        Point(x - 1, y),
-        Point(x + 1, y)
+        Point(x, y + 1)
       )
 
+    def adjacentSides: Set[Point] =
+      Set(
+        Point(x + 1, y),
+        Point(x - 1, y),
+      )
 
 
     def toTuple: (Int, Int) = (this.x, this.y)
