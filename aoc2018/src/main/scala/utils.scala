@@ -14,16 +14,12 @@ object Grid2D:
           Point(x, y + 1)
         )
 
-    def adjacentDown: Set[Point] =
-      Set(
-        Point(x, y + 1)
-      )
+    def adjacentDown: Set[Point] = Set(Point(x, y + 1))
 
-    def adjacentSides: Set[Point] =
-      Set(
-        Point(x + 1, y),
-        Point(x - 1, y),
-      )
+    def adjacentSides(dir: String): Set[Point] = dir match
+      case "left"  => Set(Point(x - 1, y))
+      case "right" => Set(Point(x + 1, y))
+      case _       => sys.error("cannot find adjacentSides")
 
 
     def toTuple: (Int, Int) = (this.x, this.y)

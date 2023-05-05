@@ -2,6 +2,7 @@ import scala.io.*
 import math.*
 import aoc2018.Grid2D.Point
 import scala.collection.mutable
+import scala.collection.immutable.Queue
 
 object day17 extends App:
 
@@ -24,145 +25,98 @@ object day17 extends App:
       .toVector
       .flatMap(parseClay)
 
-    val xMin: Int = parsed.minBy(_._1.x)._1.x
+    val xMin: Int = parsed.minBy(_._1.x)._1.x - 1
+    val yMin: Int = parsed.minBy(_._1.y)._1.y - 1
     val offset: Int = 500 - xMin
     val ground: Vector[(Point, Char)] = parsed.map(f => (Point(f._1.x - xMin, f._1.y), f._2)).distinct
-    ground ++ Vector((Point(offset, 0), '+'))
+    ground ++ Vector((Point(offset, yMin), '+'))  // add source at lowest clay y coordinate with offset
 
 
   enum Movement:
-    case Down, Side
+    case Down, Side, Still, Halt
 
   def waterfall(start: Point, clay: Vector[(Point, Char)]): Vector[(Point, Char)] =
 
     import Movement.*
-    val seen: mutable.Set[Point] = clay.map(_._1).to(mutable.Set)
-    val water: mutable.ArrayBuffer[(Point, Char)] = mutable.ArrayBuffer()
-    val queue: mutable.Queue[Point] = mutable.Queue()
+    val ground: mutable.Set[Point] = clay.map(_._1).to(mutable.Set)
+    val maxY: Int = ground.maxBy(_.y).y + 1
 
-    def pourDown(c: Point): Option[Point] =
-      c.adjacentDown.diff(seen).headOption match
-        case None => None
-        case Some(p) =>
-          water.addOne((p, '|'))
-          seen.add(p)
-          Some(p)
+    def pourDown(c: Point): Point =
+      val next: Point = c.adjacentDown.head
+      next
 
-    // TODO: let pourside be it's own recursive function that determines if it can pour further down at either end or if it hit a bassin
-    // TODO: seen can probably be immutable. It's not needed for pourDown and might not be needed for pourSide to add new water --> make seen immutable set
-    // TODO: queue can be part of the simulate() function to make it a pure function
-    // TODO: pourside should return if next step is down or if fully blocked so more side is needed with one step up.
-    // based on findings adds either | or ~
-    def pourSide(c: Point): Option[Set[Point]] =
-      val sides: Set[Point] = c.adjacentSides.diff(seen)
-      if sides.isEmpty then None
+    def pourSide(c: Point): ((Movement, Point), (Movement, Point)) =
+      def go(q: Queue[Point], dir: String): (Movement, Point) =
+        val (p, rem): (Point, Queue[Point]) = q.dequeue
+        val next: Option[Point] = p.adjacentSides(dir).diff(ground).headOption
+        next match
+          case Some(pp) =>
+            if ground.contains(Point(pp.x, pp.y + 1)) then go(rem.enqueue(pp), dir) else (Down, pp)
+          case None     => (Still, p)
+
+      val left: (Movement, Point) = go(Queue[Point](c), "left")
+      val right: (Movement, Point) = go(Queue[Point](c), "right")
+      (left, right)
+
+    def updateWaterXRange(water: Vector[(Point, Char)], left: Point, right: Point, aqua: Char): Vector[(Point, Char)] =
+      val toChange: Vector[Point] = Range(left.x, right.x + 1).map(f => Point(f, left.y)).toVector
+      toChange.map((_, aqua)) ++ water.filterNot(a => toChange.contains(a._1))
+
+    def updateGroundXRange(left: Point, right: Point): Unit =
+      val toChange: Vector[Point] = Range(left.x, right.x + 1).map(f => Point(f, left.y)).toVector
+      toChange.foreach(p => ground.add(p))
+
+    def updateWaterAtPoint(water: Vector[(Point, Char)], loc: Point): Vector[(Point, Char)] =
+      ((loc, '|') +: water).distinct
+
+    def simulate(queue: Queue[Point], water: Vector[(Point, Char)] = Vector.empty): Vector[(Point, Char)] =
+      if queue.isEmpty then water
       else
-        sides.foreach(p => water.addOne((p, '|')))
-        sides.foreach(p => seen.add(p))
-        Some(sides)
+        val (p, rem): (Point, Queue[Point]) = queue.distinct.dequeue
 
-    def stopSide: Unit = ??? // also changes | --> ~
-    def stopDown: Unit = ??? // also changes | --> ~
-
-    def simulate(move: Movement): Unit =
-      if queue.isEmpty then ()
-      else
-        val p = queue.dequeue()
-        // TODO: make pourDown go up 1 when pourside hits wals on both ends
         // determine move
-        // TODO: make movement based on clay and not on seen
-        val nextMove: Movement = if seen.contains(p.adjacentDown.head) then Side else Down
+        val nextMove: Movement = if p.y >= maxY then Halt else if p.adjacentDown.diff(ground).isEmpty then Side else Down
+
+        if p.y % 50 == 0 then println(s"Reached depth away from maxDepth: ${p.y} / $maxY")
 
 
         // run water
         nextMove match
-          case Down => pourDown(p) match
-            case None       => ()
-            case Some(next) => queue.enqueue(next)
-          case Side => pourSide(p) match
-            case None       => ()
-            case Some(next) => next.foreach(n => queue.enqueue(n))
+          case Down => simulate(rem.enqueue(pourDown(p)), updateWaterAtPoint(water, p))
+          case Side =>
+            val sides: ((Movement, Point), (Movement, Point)) = pourSide(p)
+            (sides._1._1, sides._2._1) match
+              case (Down, Down)    =>
+                val nextWater: Vector[(Point, Char)] = updateWaterXRange(water, sides._1._2, sides._2._2, '|')
+                simulate(rem.enqueueAll(List(sides._1._2, sides._2._2)), nextWater)
+              case (Still, Down)   =>
+                val nextWater: Vector[(Point, Char)] = updateWaterXRange(water, sides._1._2, sides._2._2, '|')
+                simulate(rem.enqueue(sides._2._2), nextWater)
+              case (Down, Still)   =>
+                val nextWater: Vector[(Point, Char)] = updateWaterXRange(water, sides._1._2, sides._2._2, '|')
+                simulate(rem.enqueue(sides._1._2), nextWater)
+              case (Still, Still)  =>
+                val nextWater: Vector[(Point, Char)] = updateWaterXRange(water, sides._1._2, sides._2._2, '~')
+                updateGroundXRange(sides._1._2, sides._2._2)
+                simulate(rem.enqueue(Point(p.x, p.y-1)), nextWater)
+              case _ => sys.error("cannot simulate further from here")
+          case Halt => simulate(rem, water)
+          case _ => sys.error("NO MOVEMENT POSSIBLE")
 
-        simulate(move)
 
-    queue.enqueue(start)
-    simulate(Movement.Down)
-    water.toVector
-
-
-
+    simulate(Queue[Point](Point(start.x, start.y + 1)))
 
 
   val start: Point = clay.filter(_._2 == '+').head._1
-
   val res1 = waterfall(start, clay)
-  println(res1)
-  Point.print2dGrid(clay ++ res1)
+  // Point.print2dGrid(res1 ++ clay)
 
-
-
-  private val answer1 = None
+  private val answer1: Int = res1.length
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
     System.currentTimeMillis
 
-
-  private val answer2 = None
+  private val answer2: Int = res1.count(c => c._2 == '~')
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
-// YARD
-// TODO: select a x from openEnds and find the minY for that
-// TODO: for that minY, see if the x coordinate is the same as the rightmost x in agua. If yes, then nothing, else continue from that rightmost x coordinate
-// TODO: make sure to remove the correct elements from the mutable Set, in case of duplicate x with jumps in y. Implement dropWhileFun
-//
-//def waterfallSearch(start: Point, obstacles: Vector[Point]): Vector[(Point, Char)] =
-//  val maxY: Int = obstacles.maxBy(_.y).y
-//  val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
-//  val openEnds: mutable.Set[Point] = mutable.Set[Point](start)
-//  val agua: mutable.Set[(Point, Char)] = mutable.Set[(Point, Char)]()
-//
-//  def search: Point => LazyList[Point] =
-//    (p: Point) =>
-//      val downwards: Set[Point] = p.adjacentDown(seen.to(Set)).diff(seen)
-//      if downwards.contains(Point(p.x, p.y + 1)) then openEnds.add(p) else ()
-//      seen += p
-//      downwards.foreach(seen += _)
-//      agua += ((p, '~'))
-//      LazyList(downwards.toSeq: _*)
-//
-//  def exitCondition: Point => Boolean =
-//    (p: Point) =>
-//      p.y >= maxY + 1
-//
-//  def findNextOpenEnd(ends: Set[Point]): Option[(Point, Set[Point])] =
-//    if ends.isEmpty then None
-//    else
-//      val sortedEnds: Vector[Point] = ends.toVector.sortBy(_.toTuple)
-//      // The waterfall is identified, and the remaining open ends are stored in rem
-//      val (waterfall, rem): (Vector[Point], Vector[Point]) =
-//        splitWhile(sortedEnds)((x, y) => y.y - x.y == 1 && x.x == y.x)
-//      val manantial: Point = waterfall.minBy(_.y)
-//      val rightmost = agua
-//        .map(_._1)
-//        .filter(_.y == manantial.y)
-//        .maxBy(_.x) // this is the point that was not yet traveled, a true open end
-//      if rightmost == manantial then
-//        findNextOpenEnd(rem.toSet) // here the start of the waterfall was the open end, thus skip
-//      else
-//        Some((Point(rightmost.x + 1, rightmost.y), rem.toSet)) // return the new true open end and the remainder
-//
-//  def waterStream(source: Point): Unit =
-//    bfsPriority(LazyList(source))(search, exitCondition)
-//    findNextOpenEnd(openEnds.toSet) match
-//      case None => () // no open ends remain, the waterstream is complete
-//      case Some(next) => // continue with the next true open end
-//        val (nextSource, nextEnds): (Point, Set[Point]) = next
-//        openEnds.clear
-//        nextEnds.foreach(p => openEnds.add(p))
-//        waterStream(nextSource)
-//
-//  // run a waterstream that keeps track of the agua, then return all the agua tiles
-//  waterStream(start)
-//  agua.toVector
