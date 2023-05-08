@@ -4,5 +4,7 @@ ThisBuild / scalaVersion := "3.2.2"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "acadamy"
+    name := "academy"
   )
+
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.17.0"
