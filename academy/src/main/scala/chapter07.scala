@@ -110,6 +110,9 @@ object chapter07 {
     def delay[A](fa: => Par[A]): Par[A] =
       es => fa(es)
 
+    def equal[A](p1: Par[A], p2: Par[A]): Par[Boolean] =
+      map2(p1, p2)(_ == _)
+
 
   /**
    * 7.7

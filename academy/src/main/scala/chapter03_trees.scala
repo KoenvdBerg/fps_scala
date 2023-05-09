@@ -40,6 +40,15 @@ object Tree {
   def mapf[A, B](ta: Tree[A])(f: A => B): Tree[B] =
     fold[A, Tree[B]](ta)((a, b) => Branch(a, b))(a => Leaf(f(a)))
 
+  def fill[A](size: Int)(elem: => A): Tree[A] =
+    def go(acc: Tree[A]): Tree[A] =
+      if Tree.depthf(acc) >= size then acc
+      else acc match
+        case Leaf(v) => go(Branch(Leaf(elem), Leaf(elem)))
+        case t@Branch(left, right) => go(Branch(t, t))
+    go(Leaf(elem))
+
+
 }
 
 
@@ -64,4 +73,8 @@ object Tree {
   println(Tree.maximumf(testtree))
   println(Tree.depthf(testtree))
   println(Tree.mapf(testtree)(f => f * 2))
+
+  val tfill: Tree[Int] = Tree.fill(4)(4)
+  println(tfill)
+
 

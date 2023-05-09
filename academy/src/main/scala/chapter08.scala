@@ -1,6 +1,8 @@
 import chapter06.SimpleRNG
 import testing.Prop.{FailedCase, SuccessCount, TestCases}
 
+import java.util.concurrent.{ExecutorService, Executors}
+
 object PlayingWithScalaCheck extends App:
   import org.scalacheck.*
   import Prop.*
@@ -19,13 +21,13 @@ object PlayingWithScalaCheck extends App:
   sumProp2.check()
 
   // 5.2
-  val prop3 = forAll(sumIns)(ns => ns.sorted.lastOption.getOrElse(()) == ns.max)
+  val prop3 = forAll(sumIns)(ns => ns.isEmpty || ns.sorted.last == ns.max)
   prop3.check()
 
 
 object testing:
   import chapter06.RNG
-  import state.*
+  import State.*
 
   type MaxSize = Int
   case class Prop(run: (MaxSize, TestCases, RNG) => Result):
@@ -34,22 +36,24 @@ object testing:
     def &&(that: Prop): Prop = Prop(
       (max: MaxSize, n: TestCases, rng: RNG) => run(max, n, rng) match
         case Passed => that.run(max, n, rng)
-        case Falsified(f, s) => Falsified(f, s))
+        case other  => other)
 
     def ||(that: Prop): Prop = Prop(
       (max: MaxSize, n: TestCases, rng: RNG) => run(max, n, rng) match
-        case Passed => Passed
-        case Falsified(f, _) => that.tag(f).run(max, n, rng))
+        case Falsified(f, _) => that.tag(f).run(max, n, rng)
+        case other => other)
 
     def tag(msg: String): Prop = Prop(
       (max: MaxSize, n: TestCases, rng: RNG) => run(max, n, rng) match
-        case Passed => Passed
-        case Falsified(f, s) => Falsified(msg + "\n" + f, s))
+        case Falsified(f, s) => Falsified(msg + "\n" + f, s)
+        case other => other)
   sealed trait Result:
     def isFalsified: Boolean
   case object Passed extends Result:
     override def isFalsified: Boolean = false
   case class Falsified(failure: FailedCase, successes: SuccessCount) extends Result:
+    override def isFalsified: Boolean = true
+  case object Proved extends Result:
     override def isFalsified: Boolean = true
 
 
@@ -83,9 +87,6 @@ object testing:
             } catch { case e: Exception => Falsified(buildMsg(a, e), i)}
           }.find(_.isFalsified).getOrElse(Passed)
         )
-
-
-
     def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] =
       LazyList.unfold(rng)(rng => Some(g.sample.run(rng)))
 
@@ -94,10 +95,39 @@ object testing:
       s"generated an exception: ${e.getMessage}\n" +
       s"stack trace: \n ${e.getStackTrace.mkString("\n")}"
 
+    def run(p: Prop, maxSize: Int = 100, testCases: Int = 100, rng: RNG = SimpleRNG(System.currentTimeMillis)): Unit =
+      p.run(maxSize, testCases, rng) match
+        case Falsified(msg, n) =>
+          println(s"! Falsified after $n passed tests: \n $msg")
+        case Passed =>
+          println(s"+ OK, passed $testCases tests.")
+        case Proved =>
+          println(s"+ OK, proved property")
+
+    def check(p: => Boolean): Prop = Prop(
+      (_, _, _) => if p then Proved else Falsified(" ()", 0))
+
+    val S: Gen[ExecutorService] = Gen.weighted(
+      Gen.choose(1, 4).map(Executors.newFixedThreadPool) -> 0.75,
+      Gen.unit(Executors.newCachedThreadPool) -> 0.25)
+
+    import chapter07.Par
+    def forAllPar[A](g: Gen[A])(f: A => Par[Boolean]): Prop =
+      forAll(S ** g){ case (s, a) => f(a)(s).get}
+
   case class Gen[A](sample: State[RNG, A]):
     // 8.6
     def flatMap[B](f: A => Gen[B]): Gen[B] =
       Gen(sample.flatMap(s => f(s).sample))
+
+    def map[B](f: A => B): Gen[B] =
+      Gen(sample.map(s => f(s)))
+
+    def map2[B, C](b: Gen[B])(f: (A, B) => C): Gen[C] =
+      Gen(sample.map2(b.sample)(f))
+
+    def **[B](g: Gen[B]): Gen[(A, B)] =
+      this.map2(g)((_, _))
 
     // 8.10
     def unsized: SGen[A] = SGen((_: Int) => this)
@@ -117,6 +147,33 @@ object testing:
 
     def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] =
       Gen(State.sequence(List.fill(n)(g.sample)))
+
+    def treeOfN[A](n: Int, g: Gen[A]): Gen[Tree[A]] =
+      Gen(State.sequenceTree(Tree.fill(n)(g.sample)))
+
+    //    def treeOfN[A](n: Int, g: Gen[A]): Gen[Tree[A]] =
+//      val tt: Tree[State[RNG, A]] = Tree.fill(n)(g.sample)
+//      Gen(State(
+//        (rng: RNG) =>
+//          Tree.fold(tt)
+//            ((t1: Tree[A], t2: Tree[A]) => Branch(t1, t2))
+//            ((s: State[RNG, A]) =>
+//              val (r, rng2) = s.run(rng)
+//              (Leaf(r), rng2))
+//      ))
+//      Gen(State((rng: RNG) => Tree.fill(n)(g.sample)))
+//      println(Tree.fold(tt)((t1: Tree[Int], t2: Tree[Int]) => Branch(t1, t2))((s: State[chapter06.RNG, Int]) => Leaf(s.run(rng)._1)))
+
+
+
+    // 8.13
+    def listOf1[A](g: Gen[A]): SGen[List[A]] = SGen(
+      (n: Int) => if n <= 0 then listOfN(1, g) else listOfN(n, g)
+      // can be replaced with n.max(1)
+    )
+
+    import Tree.*
+    def treeOf[A](g: Gen[A]): SGen[Tree[A]] = ???
 
     // 8.12
     def listOf[A](g: Gen[A]): SGen[List[A]] = SGen(
@@ -155,7 +212,7 @@ object testing:
   println("KLFJD")
 
   import testing.*
-  import state.*
+  import State.*
 
   val rng = SimpleRNG(42)
   val x = Gen(State(rng.unit(1)))
@@ -175,3 +232,100 @@ object testing:
 
   // below generates list of strings with length 5, as specified in the stringgen value.
   println(stringgen.listOfN(xx).sample.run(rng))
+
+  val smallInt: Gen[Int] = Gen.choose(-10, 10)
+  val maxProp: Prop = Prop.forAll(Gen.listOf1(smallInt))(
+    (ns: List[Int]) =>
+      val max = ns.max
+      !ns.exists(_ > max)
+  )
+  Prop.run(maxProp)
+
+  // 8.14
+  val ints: Gen[Int] = Gen.choose(0, 100)
+  val sortedPropInt: Prop = Prop.forAll(Gen.listOf1(ints))(
+    (ns: List[Int]) =>
+      !ns.sorted.dropRight(1).exists(_ > ns.max)
+  )
+  Prop.run(sortedPropInt)
+
+  val sortedProp2: Prop = Prop.forAll(Gen.listOf(ints))(
+    (ns: List[Int]) =>
+      val sortedns = ns.sorted
+
+      sortedns.isEmpty || sortedns.tail.isEmpty || !sortedns.zip(sortedns.tail).exists(
+        (a: Int, b: Int) => a > b
+      ) && ns.exists(sortedns.contains(_))
+        && sortedns.exists(ns.contains(_))
+
+  )
+
+  Prop.run(sortedProp2)
+
+  import java.util.concurrent.{ExecutorService, Executors}
+  import chapter07.Par
+
+  // method 1 using forAll
+  val ES: ExecutorService = Executors.newCachedThreadPool
+  val p1: Prop = Prop.forAll(Gen.unit(Par.unit(1)))(i =>
+    Par.map(i)(_ + 1)(ES).get == Par.unit(2)(ES).get)
+  Prop.run(p1)
+
+  // method 2 using check
+  val p2: Prop = Prop.check{
+    val p1: Par[Int] = Par.map(Par.unit(1))(_ + 1)
+    val p2: Par[Int] = Par.unit(2)
+    p1(ES).get == p2(ES).get()
+  }
+  Prop.run(p2)
+
+  // method 3 using Par.equal
+  val p3 = Prop.check(
+    Par.equal(
+      Par.map(Par.unit(1))(_ + 1),
+      Par.unit(2)
+    )(ES).get
+  )
+  Prop.run(p3)
+
+  val pint: Gen[Par[Int]] = Gen.choose(0,10).map(Par.unit)
+  val p4: Prop = Prop.forAllPar(pint)(n => Par.equal(Par.map(n)(y => y), n))
+  Prop.run(p4)
+
+  // 8.17
+  val pfork = Gen.choose(0, 10).map(Par.unit)
+  val p5: Prop = Prop.forAllPar(pfork)(n => Par.equal(Par.fork(n), n))
+  Prop.run(p5)
+
+  // 8.18
+  // takeWhile should satisfy:
+  //  - all of the returned elements should be present in the original List
+  //  - the order of the returned elements should be unchanged
+  //  - the returned elements should begin at the head of the list
+  //  - the returned elements by takeWhile + the returned elements by dropWhile using the same A => Boolean function
+  //    should return the original List.
+
+  val isEven: Int => Boolean = (i: Int) => i % 2 == 0
+  val takeWhileProp: Prop = Prop.forAll(Gen.listOf1(ints))((ns: List[Int]) => ns.takeWhile(isEven).forall(isEven))
+  Prop.run(takeWhileProp)
+
+  // properties for take
+  val takeProp: Prop = Prop.forAll(Gen.listOf(ints))(
+    (ns: List[Int]) =>
+      val res: List[Int] = ns.take(5)
+
+      res.isEmpty || res.length == 5.min(ns.length) && res.head == ns.head
+      && res.exists(ns.contains) && ns.exists(res.contains)
+  )
+  Prop.run(takeProp)
+
+  // sized generator for the Tree datatype from chapter03
+  val tt = Tree.fill(4)(ints.sample)
+  val treegen: Gen[Tree[Int]] = Gen.treeOfN(4, treeInt)
+  println(treegen.sample.run(rng))
+
+
+
+
+
+

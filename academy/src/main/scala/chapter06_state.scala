@@ -1,4 +1,3 @@
-package state
 
 case class State[S, +A](run: S => (A, S)):
 
@@ -32,10 +31,14 @@ object State:
     case h :: t => h.map2(sequence(t))(_ :: _)
     case Nil => State((s: S) => (Nil, s))
 
+  import Tree.*
+  def sequenceTree[S, A](fs: Tree[State[S, A]]): State[S, Tree[A]] = fs match
+    case Branch(left, right) => sequenceTree(left).map2(sequenceTree(right))(Branch(_, _))
+    case Leaf(v) => State((s: S) =>
+      val res = v.run(s)
+      (Leaf(res._1), res._2))
 
 object Candy:
-
-  import state.*
 
   sealed trait Input
   case object Coin extends Input
