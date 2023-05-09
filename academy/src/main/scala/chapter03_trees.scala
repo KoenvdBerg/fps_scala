@@ -44,8 +44,8 @@ object Tree {
     def go(acc: Tree[A]): Tree[A] =
       if Tree.depthf(acc) >= size then acc
       else acc match
-        case Leaf(v) => go(Branch(Leaf(elem), Leaf(elem)))
-        case t@Branch(left, right) => go(Branch(t, t))
+        case Leaf(_) => go(Branch(Leaf(elem), Leaf(elem)))
+        case t@Branch(_, _) => go(Branch(t, t))
     go(Leaf(elem))
 
 

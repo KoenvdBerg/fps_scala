@@ -151,21 +151,6 @@ object testing:
     def treeOfN[A](n: Int, g: Gen[A]): Gen[Tree[A]] =
       Gen(State.sequenceTree(Tree.fill(n)(g.sample)))
 
-    //    def treeOfN[A](n: Int, g: Gen[A]): Gen[Tree[A]] =
-//      val tt: Tree[State[RNG, A]] = Tree.fill(n)(g.sample)
-//      Gen(State(
-//        (rng: RNG) =>
-//          Tree.fold(tt)
-//            ((t1: Tree[A], t2: Tree[A]) => Branch(t1, t2))
-//            ((s: State[RNG, A]) =>
-//              val (r, rng2) = s.run(rng)
-//              (Leaf(r), rng2))
-//      ))
-//      Gen(State((rng: RNG) => Tree.fill(n)(g.sample)))
-//      println(Tree.fold(tt)((t1: Tree[Int], t2: Tree[Int]) => Branch(t1, t2))((s: State[chapter06.RNG, Int]) => Leaf(s.run(rng)._1)))
-
-
-
     // 8.13
     def listOf1[A](g: Gen[A]): SGen[List[A]] = SGen(
       (n: Int) => if n <= 0 then listOfN(1, g) else listOfN(n, g)
@@ -173,7 +158,9 @@ object testing:
     )
 
     import Tree.*
-    def treeOf[A](g: Gen[A]): SGen[Tree[A]] = ???
+    def treeOf[A](g: Gen[A]): SGen[Tree[A]] = SGen(
+      (n: Int) => treeOfN(n, g)
+    )
 
     // 8.12
     def listOf[A](g: Gen[A]): SGen[List[A]] = SGen(
@@ -319,13 +306,29 @@ object testing:
   )
   Prop.run(takeProp)
 
-  // sized generator for the Tree datatype from chapter03
+  // sized generator for the Tree datatype from chapter03 -- p. 144
   val tt = Tree.fill(4)(ints.sample)
-  val treegen: Gen[Tree[Int]] = Gen.treeOfN(4, treeInt)
-  println(treegen.sample.run(rng))
+  val treegen: Gen[Tree[Int]] = Gen.treeOfN(4, smallInt)
 
+  // properties for Tree
+  val treeProp: Prop = Prop.check {
+    val t1: Tree[Int] = Tree.mapf(Leaf(1))(_ + 1)
+    val t2: Tree[Int] = Leaf(2)
+    t1 == t2
+  }
+  val treeProp2: Prop = Prop.check {
+    val t1: Tree[Int] = Tree.map(Leaf(1))(_ + 1)
+    val t2: Tree[Int] = Leaf(2)
+    t1 == t2
+  }
+  val treeProp3: Prop = Prop.forAll(Gen.treeOf(smallInt))(
+    (ns: Tree[Int]) =>
+      val res: Int = Tree.size(ns)+1        // any tree size
+      res == math.pow(2, Tree.depth(ns)+1)  // generated tree size with fill should be 2 to the power depth nodes
+  )
 
-
-
+  Prop.run(treeProp, maxSize = 5)
+  Prop.run(treeProp2, maxSize = 5)
+  Prop.run(treeProp3, maxSize = 10)  // treesize not too big to prevent heapspace errors
 
 
