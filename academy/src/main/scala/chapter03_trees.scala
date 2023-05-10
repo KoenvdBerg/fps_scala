@@ -43,7 +43,7 @@ object Tree {
 }
 
 
-@main def runtree(): Unit =
+@main def run_chapter03_tree(): Unit =
   println("### 3.25 ###")
   val test = Branch(Leaf("joost"), Branch(Branch(Leaf("bar"), Leaf("baz")), Leaf("foobar")))
   println(Tree.size(test))

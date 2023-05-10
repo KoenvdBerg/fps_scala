@@ -231,7 +231,7 @@ object chapter05 {
 val x = chapter05.Stream(1,2,3,4,5,6,7,8,9)
 
 
-@main def C05(): Unit =
+@main def run_chapter05(): Unit =
   val x = chapter05.if2(false, sys.error("fail"),  43)
 
   val y = chapter05.maybeTwice(true, {println("Hello there"); 1 + 41})

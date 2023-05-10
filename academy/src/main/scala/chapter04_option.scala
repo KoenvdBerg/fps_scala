@@ -112,7 +112,7 @@ object KOption {
 
 
 
-@main def C04(): Unit =
+@main def run_chapter04_option(): Unit =
   val x = KSome(10)
 
   println(x.map(_+1))
