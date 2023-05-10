@@ -57,7 +57,7 @@ object Candy:
         case (Turn, s) if s.locked && s.candies > 0 => Machine(false, candies - 1, coins)
         case _ => s
 
-@main def CandyMachine(): Unit =
+@main def run_chapter06_candymachine(): Unit =
   import Candy.{Coin, Turn, Machine, Input}
   val input: List[Input] = List(Coin, Coin, Coin, Turn, Turn, Coin)
   val m = Machine(true, 5, 10)

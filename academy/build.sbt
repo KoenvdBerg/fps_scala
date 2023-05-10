@@ -6,3 +6,11 @@ lazy val root = (project in file("."))
   .settings(
     name := "acadamy"
   )
+
+ThisBuild / scalacOptions ++= Seq(
+  "-unchecked",
+  "-deprecation",
+  "-feature",
+  "-language:higherKinds",
+//  "-explain"
+)
