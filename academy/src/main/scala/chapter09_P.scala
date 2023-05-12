@@ -43,14 +43,14 @@ object Combinator:
         val (h, next): (String, String) = i.splitAt(s.length)
         // if s.isEmpty then Right(s)
         if h == s then (Right(h), next)
-        else (Left("ERROR reporting to be included"), next)
+        else (Left(s"ERROR reporting to be included: ${h}"), next)
     implicit def regex(s: Regex): Parser[String] =
       (i: String) =>
         s.findPrefixOf(i) match
           case Some(s) =>
             val next: String = i.replaceFirst(s, "")
             (Right(s), next)
-          case None    => (Left("ERROR reporting to be included"), i)
+          case None    => (Left(s"ERROR reporting to be included: ${s}"), i)
     def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] =
       (i: String) =>
         s1(i) match
@@ -101,9 +101,9 @@ object Combinator:
 
     def skipWhiteSpace[A](p: Parser[A]): Parser[A] =
       for {
-        _ <- whitespace.many.slice
+        _ <- whitespace.many
         pp <- p
-        _ <- whitespace.many.slice
+        _ <- whitespace.many
       } yield pp
 
     def sequence[A](sep: Parser[Char], p: Parser[A]): Parser[List[A]] =
@@ -113,10 +113,11 @@ object Combinator:
       } yield ppl :: next
 
     // COMBINATORS
-    val digit: Parser[Int] =  regex("""[0-9]""".r).map(_.toInt)  //skipWhiteSpace(regex("""[0-9]""".r).map(_.toInt))
+    val digit: Parser[Int] = regex("""[0-9]""".r).map(_.toInt)  //skipWhiteSpace(regex("""[0-9]""".r).map(_.toInt))
     val letter: Parser[String] = regex("""[a-zA-Z\s]""".r)
+    val specials: Parser[String] = string("?") | string("@")
     val whitespace: Parser[String] = regex("""[\s\t\r\n\f]""".r)
-    val number: Parser[String] = digit.slice
+    val number: Parser[String] = digit.many1.slice
     val decimal: Parser[String] = for {
       n1 <- number
       dot <- char('.')
@@ -128,6 +129,11 @@ object Combinator:
       n <- number
     } yield d + e + n
     val bool: Parser[Boolean] = (string("true") | string("false")).map(_.toBoolean)
+    val quotedString: Parser[String] = for {
+      _ <- char('"')
+      v <- (letter | digit | specials).many.slice
+      _ <- char('"')
+    } yield v
 
 
 @main def testP: Unit =

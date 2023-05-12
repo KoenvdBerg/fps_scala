@@ -92,7 +92,6 @@ object chapter09:
     } yield n.length
 
 
-
     // COMBINATORS
     val digit: Parser[Int] = skipWhiteSpace(regex("""[0-9]""".r).map(_.toInt))
     val letter: Parser[String] = skipWhiteSpace(regex("""[a-Z\s]""".r))
@@ -109,43 +108,6 @@ object chapter09:
       n <- number
     } yield d + e + n
     val bool: Parser[Boolean] = (string("true") | string("false")).map(_.toBoolean)
-
-
-    // JSON PARSERS
-    enum JSON:
-      case JNull
-      case JNumber(get: Double)
-      case JString(get: String)
-      case JBool(get: Boolean)
-      case JArray(get: IndexedSeq[JSON])
-      case JObject(get: Map[String, JSON])
-
-    import JSON.*
-    val jnull: Parser[JSON]   = string("null").map((s: String) => JNull)  // TODO: add in whitespace handling here
-    val jnumber: Parser[JSON] = (number | decimal | scientific).map((s: String) => JNumber(s.toDouble))
-    val jstring: Parser[JSON] = for {
-      _ <- char('"')
-      v <- letter.slice
-      _ <- char('"')
-    } yield JString(v)
-    val jbool: Parser[JSON]   = bool.map((b: Boolean) => JBool(b))
-    val jarray: Parser[JSON]  = for {
-      _     <- char('[')
-      items <- sequence(char(','), jnull | jnumber | jstring | jbool | jobject)
-      _     <- char(']')
-    } yield JArray(items.toVector)
-    val pair: Parser[(String, JSON)] = for {
-      k <- letter.slice
-      _ <- char(':')
-      v <- jnull | jnumber | jstring | jbool | jobject | jarray
-    } yield (k, v)
-    val jobject: Parser[JSON] = for {
-      _     <- char('{')
-      pairs <- sequence(char(','), pair)
-      _     <- char('}')
-    } yield JObject(pairs.toMap)
-    val jsonParser: Parser[JSON] = jnull | jnumber | jstring | jbool | jarray | jobject
-
 
     // PROPERTY LAWS FOR THIS ALGEBRA
     object laws:
