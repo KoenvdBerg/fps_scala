@@ -1,4 +1,4 @@
-import state.State.unit
+import State.unit
 
 import math.*
 
@@ -156,10 +156,10 @@ object chapter06:
   val tt = chapter06.RNG.ints2(5)(x)
   println(tt(x))
 
-  val s = state.State
+  val s = State
   println(s)
 
   println("### TESTING CUSTOM STATE ###")
-  val r = state.State((s:Int) => (s*2, s+2))
+  val r = State((s:Int) => (s*2, s+2))
   println(r.map(_ + 20).run(100))
 
