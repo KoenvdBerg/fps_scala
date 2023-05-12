@@ -5,8 +5,9 @@ import testing.*
 import scala.util.matching.Regex
 
 object chapter09:
-  trait Parsers[ParseError, Parser[+_]]:
-    private val self: Parsers[ParseError, Parser] = this
+  trait Parsers[Parser[+_]]:
+    private val self: Parsers[Parser] = this
+    case class ParserError(stack: List[(Location, String)])
 
     implicit def operators[A](p: Parser[A]): ParserOps[A] = ParserOps[A](p)
     implicit def asStringParser[A](a: A)(using f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
@@ -26,7 +27,7 @@ object chapter09:
     implicit def string(s: String): Parser[String] = ???
     implicit def regex(s: Regex): Parser[String] = ???
     def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] = ???
-    def run[A](p: Parser[A])(input: String): Either[ParseError, A] = ???
+    def run[A](p: Parser[A])(input: String): Either[ParserError, A] = ???
     def succeed[A](a: A): Parser[A] = string("").map(_ => a)
     def slice[A](p: Parser[A]): Parser[String] = ???
     def product[A, B](p: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
@@ -46,6 +47,14 @@ object chapter09:
         map2(p2, succeed(()))((a, _) => f(a))
         // option 2: flatMap(p2)(pp => succeed(f(pp)))
     def flatMap[A, B](p: Parser[A])(f: A => Parser[B]): Parser[B] = ???
+
+    // ERROR REPORTING
+    def label[A](msg: String)(p: Parser[A]): Parser[A] = ???
+    def errorLocation(e: ParserError): Location = ???
+    def errorMessage(e: ParserError): String = ???
+    def scope[A](msg: String)(p: Parser[A]): Parser[A] = ???
+    def attempt[A](p: Parser[A]): Parser[A] = ???
+
 
     // HELPER FUNCTIONS
     def many[A](p: Parser[A]): Parser[List[A]] =
@@ -175,19 +184,30 @@ object chapter09:
           run(product(c1, c1))("a") == Right(("a", "a"))
         }
 
+      def labelLaw[A](p: Parser[A], inputs: Gen[String]): Prop =
+        Prop.forAll(inputs.map(i => (i, "sample error message"))){
+          case (input: String, msg: String) =>
+            run(label(msg)(p))(input) match
+              case Left(e) => errorMessage(e) == msg
+              case _ => true
+        }
 
-//  type PError = String
-//  type Parser[+A] = String => (Either[PError, A], String)
-//  object Parsers:
-//    def run[A](p: Parser[A])(input: String): Either[PError, A] = p(input)
-//    def or[A](s1: Parser[A], s2: Parser[A]): Parser[A] = ???
-//    val  lel = 8
+
+
+  object Parsers:
+    val  lel = 8
+
+  case class Location(input: String, offset: Int = 0):
+    lazy val line: Int = input.slice(0, offset + 1).count(_ == '\n') + 1
+    lazy val col: Int = input.slice(0, offset + 1).lastIndexOf('\n') match
+      case -1 => offset + 1
+      case lineStart => offset - lineStart
+
 
 
 @main def run_chapter09: Unit =
   ()
 
-  // TODO: (1) merge the pull-requests, then (2) create branch chapter09 from main, (3) commit changes
   // TODO: continue from page 160 (9.5)
 
 
