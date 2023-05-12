@@ -237,7 +237,7 @@ object L {
   }
 
 
-@main def runlist(): Unit = {
+@main def run_chapter03_list(): Unit = {
   val x = L.List(1,2,3,4)
   val res = L.foldLeft(x, 1)((a, b) => a + a*b)
   println(res)

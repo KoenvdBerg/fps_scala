@@ -137,7 +137,7 @@ object chapter06:
 
 
 
-@main def chapter_06(): Unit =
+@main def run_chapter06(): Unit =
 
   val x = chapter06.SimpleRNG(42)
   val y = x.int

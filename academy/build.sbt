@@ -7,4 +7,14 @@ lazy val root = (project in file("."))
     name := "academy"
   )
 
+
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.17.0"
+
+ThisBuild / scalacOptions ++= Seq(
+  "-unchecked",
+  "-deprecation",
+  "-feature",
+  "-language:higherKinds",
+//  "-explain"
+)
+

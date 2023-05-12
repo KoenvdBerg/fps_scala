@@ -62,7 +62,7 @@ object KEither {
 }
 
 
-@main def C04Either(): Unit =
+@main def run_chapter04_either(): Unit =
   val x = Vector(1.1,2.2,4,5,20)
   println(KEither.mean(x))
   println(KEither.mean(Vector()))
