@@ -4,18 +4,6 @@ import chapter09.Parsers
 import java.awt.Panel
 import scala.language.implicitConversions
 
-val example: String =
-  """
-  {
-    "company name": "Microsoft Corporation",
-    "ticker" : "MSFT",
-    "active" : true,
-    "price"  : 30.66,
-    "shares outstanding" : 8.38e9,
-    "related companies"  : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
-  }
-  """
-
 object Combinator:
 
   case class Location(input: String, offset: Int = 0):
@@ -30,8 +18,10 @@ object Combinator:
 
 
   // type Parser[+A] = State[String, Either[String, A]]
-  type Parser[+A] = String => (Either[String, A], String)
   // type Parser[+A] = String => Either[String, A]
+
+  type Parser[+A] = String => (Either[String, A], String)
+
 
   implicit def operators[A](p: Parser[A]): P[A] = P[A](p)
   case class P[+A](p: Parser[A]):
@@ -42,7 +32,7 @@ object Combinator:
     def or[B >: A](p2: Parser[B]): Parser[B] = P.or(p, p2)
     def many[AA >: A]: Parser[List[A]] = P.many(p)
     def many1[AA >: A]: Parser[List[A]] = P.many1(p)
-    def slice[A]: Parser[String] = P.slice(p)
+    def slice: Parser[String] = P.slice(p)
     def **[B >: A](p2: Parser[B]): Parser[(A, B)] = P.product(p, p2)
 
   object P:
@@ -71,7 +61,13 @@ object Combinator:
       // map(string(""))(_ => a)
       (i: String) => (Right(a), i)
 
-    def slice[A](p: Parser[A]): Parser[String] = ???
+    def slice[A](p: Parser[A]): Parser[String] =
+      map(p){
+        case Nil => ""
+        case h :: t => (h :: t).mkString("")
+        case x => x.toString  // TODO: perhaps make this a Try()
+      }
+
     def product[A, B](p: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
      flatMap(p)(pp => map(p2)(pp2 => (pp, pp2)))
     def map2[A, B, C](p: Parser[A], p2: => Parser[B])(f: (A, B) => C): Parser[C] =
@@ -103,11 +99,35 @@ object Combinator:
     def other[A, B](p: Parser[A], p2: Parser[B]): Parser[B] =
       for {_ <- p; pp <- p2} yield pp
 
-//    def sequence[A](sep: Parser[Char], p: Parser[A]): Parser[List[A]] =
-//      for {
-//        ppl <- p
-//        next <- other(sep, p).many
-//      } yield ppl :: next
+    def skipWhiteSpace[A](p: Parser[A]): Parser[A] =
+      for {
+        _ <- whitespace.many.slice
+        pp <- p
+        _ <- whitespace.many.slice
+      } yield pp
+
+    def sequence[A](sep: Parser[Char], p: Parser[A]): Parser[List[A]] =
+      for {
+        ppl <- p
+        next <- other(sep, p).many
+      } yield ppl :: next
+
+    // COMBINATORS
+    val digit: Parser[Int] =  regex("""[0-9]""".r).map(_.toInt)  //skipWhiteSpace(regex("""[0-9]""".r).map(_.toInt))
+    val letter: Parser[String] = regex("""[a-zA-Z\s]""".r)
+    val whitespace: Parser[String] = regex("""[\s\t\r\n\f]""".r)
+    val number: Parser[String] = digit.slice
+    val decimal: Parser[String] = for {
+      n1 <- number
+      dot <- char('.')
+      n2 <- number
+    } yield n1 + dot + n2
+    val scientific: Parser[String] = for {
+      d <- decimal
+      e <- char('e') | char('E')
+      n <- number
+    } yield d + e + n
+    val bool: Parser[Boolean] = (string("true") | string("false")).map(_.toBoolean)
 
 
 @main def testP: Unit =
@@ -175,6 +195,18 @@ object Combinator:
       result2 == Left("ERROR reporting to be included")
     }
 
+  def sliceCheck: Prop =
+    Prop.check {
+      val x: Parser[String] = slice((char('a') | char('b')).many)
+      val y: Parser[String] = slice(regex("[0-9]".r).many)
+      val z: Parser[String] = slice(regex("[0-9]".r).many1)
+      run(x)("aababab") == Right("aababab") &&
+        run(y)("12345467XXX") == Right("12345467") &&
+        run(y)("skdlf2390") == Right("") &&
+        run(z)("skdlf2390") == Left("ERROR reporting to be included")
+    }
+
+
 
 
   // RUNNING TESTS:
@@ -187,6 +219,7 @@ object Combinator:
   Prop.run(listOfNCheck)
   Prop.run(manyCheck(stringGen))
   Prop.run(regexCheck)
+  Prop.run(sliceCheck)
 
 //  def labelLaw[A](p: Parser[A], inputs: Gen[String]): Prop =
 //    Prop.forAll(inputs.map(i => (i, "sample error message"))) {
