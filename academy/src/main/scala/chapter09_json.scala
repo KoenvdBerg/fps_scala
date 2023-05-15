@@ -13,7 +13,7 @@ object MyJSONParser:
       "ticker" : "MSFT",
       "active" : true,
       "price"  : 30.66,
-      "shares outstanding" : 8.38Q9,
+      "shares outstanding" : 8.38q9,
       "related companies"  : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
     }
     """
@@ -38,11 +38,12 @@ object MyJSONParser:
       items <- skipWhiteSpace(sequence(char(','), jsonParser))
       _ <- char(']')
     } yield JArray(items.toVector)
-    val pair: Parser[(String, JSON)] = for {
-      k <- skipWhiteSpace(quotedString)
-      _ <- char(':')
-      v <- skipWhiteSpace(jsonParser)
-    } yield (k, v)
+    val pair: Parser[(String, JSON)] = {
+      for {
+        k <- skipWhiteSpace(quotedString)
+        _ <- char(':')
+        v <- skipWhiteSpace(jsonParser)
+      } yield (k, v)}
     val jobject: Parser[JObject] = for {
       _ <- char('{')
       pairs <- sequence(char(','), pair)

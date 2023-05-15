@@ -6,7 +6,7 @@ import scala.language.implicitConversions
 
 object Combinator:
 
-  case class Location(input: String, offset: Int = 0):
+  case class Location(input: String, offset: Int = 0, label: String = ""):
     lazy val line: Int = input.slice(0, offset + 1).count(_ == '\n') + 1
     lazy val prevLine: Int = input.slice(0, offset + 1).lastIndexOf('\n')
     lazy val nextLine: Int = input.slice(offset, offset + 1000).indexWhere(_ == '\n')
@@ -17,21 +17,20 @@ object Combinator:
       case -1        => input.slice(prevLine, input.length)
       case endOfLine => input.slice(prevLine, offset + endOfLine)
 
-    def errorMessage(lbl: String, exp: String): String =
+    def errorMessage(lbl: String, expected: String): String =
       s"""
          |--------  PARSING ERROR  --------
-         |Location: (line: $line, col: $col)
+         |Location: (line: $line, col: $col, n: $offset)
          |Label: $lbl
          |$thisLine
          |${List.fill(col-1)(" ").mkString("") + "^"}
          |${List.fill((col-4).max(0))(" ").mkString("") + "ERROR HERE"}
          |
-         |Expected: $exp
+         |Expected: $expected
+         |
          |""".stripMargin
 
 
-
-//  case class Read(next: String, loc: Location)
   type Parser[+A] = Location => (Either[String, A], Location)
 
 
@@ -55,24 +54,24 @@ object Combinator:
       (i: Location) =>
         val searchUntil: Int = s.length + i.offset
         val h: String = i.input.slice(i.offset, searchUntil)
-        if h == s then (Right(h), Location(i.input, searchUntil))
+        if h == s then
+          (Right(h), Location(i.input, searchUntil))
         else
-          (Left(i.errorMessage("none", s)), i)
+          (Left(i.errorMessage(i.label, s)), i)
     implicit def regex(s: Regex): Parser[String] =
       (i: Location) =>
         val (_, searchSpace): (String, String) = i.input.splitAt(i.offset)
         s.findPrefixOf(searchSpace) match
           case Some(s) =>
             (Right(s), Location(i.input, i.offset + s.length))
-          case None    => (Left(i.errorMessage("none", s.toString())),  i)
+          case None    =>
+            (Left(i.errorMessage(i.label, s.toString())), i)
     def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] =
       (i: Location) =>
         s1(i) match
-          case (r@Right(_), loc) => (r, loc)
-          case (Left(e), o)    =>
-//            println(e)
-            // TODO: fix the error that now is in the price.
-            s2(o)
+          case (Left(_), _)      => s2(i)
+          case r => r
+
     def succeed[A](a: A): Parser[A] =
       // map(string(""))(_ => a)
       (i: Location) => (Right(a), i)
@@ -81,7 +80,7 @@ object Combinator:
       map(p){
         case Nil => ""
         case h :: t => (h :: t).mkString("")
-        case x => x.toString  // TODO: perhaps make this a Try()
+        case x => x.toString
       }
 
     def product[A, B](p: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
@@ -94,8 +93,7 @@ object Combinator:
       (i: Location) =>
         p(i) match
           case (Right(v), loc) => f(v)(loc)
-          //TODO: implement error handling below:
-          case (Left(e), next)  => (Left(e), next)
+          case (Left(e), _)  => (Left(e), i)
 
     // HELPER FUNCTIONS
     def many[A](p: Parser[A]): Parser[List[A]] =
@@ -242,14 +240,6 @@ object Combinator:
   Prop.run(manyCheck(stringGen))
   Prop.run(regexCheck)
   Prop.run(sliceCheck)
-
-//  def labelLaw[A](p: Parser[A], inputs: Gen[String]): Prop =
-//    Prop.forAll(inputs.map(i => (i, "sample error message"))) {
-//      case (input: String, msg: String) =>
-//        run(label(msg)(p))(input) match
-//          case Left(e) => errorMessage(e) == msg
-//          case _ => true
-//    }
 
 
 
