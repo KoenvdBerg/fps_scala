@@ -13,7 +13,7 @@ object MyJSONParser:
       "ticker" : "MSFT",
       "active" : true,
       "price"  : 30.66,
-      "shares outstanding" : 8.38e9,
+      "shares outstanding" : 8.38Q9,
       "related companies"  : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
     }
     """
@@ -29,7 +29,7 @@ object MyJSONParser:
 
   object JSON:
 
-    val jnull: Parser[JSON] = string("null").map((s: String) => JNull) // TODO: add in whitespace handling here
+    val jnull: Parser[JSON] = string("null").map((s: String) => JNull)
     val jnumber: Parser[JNumber] = (scientific | decimal | number ).map((s: String) => JNumber(s.toDouble))
     val jstring: Parser[JString] = quotedString.map((v: String) => JString(v))
     val jbool: Parser[JBool] = bool.map((b: Boolean) => JBool(b))
@@ -57,19 +57,19 @@ object MyJSONParser:
   import Combinator.P.*
 
   // TESTS
-  println(jnull("null"))
-  println(jnumber("444.44E4"))
-  println(jstring(""""hel9403""""))
-  println(jbool("false"))
-  val test2 = sequence(char(','), jstring)
-  println(test2(""""aaa","aaa","aaa","aaa""""))
-  println(jarray("""[4,4,4,4]"""))
-  println(jarray("""[null,null]"""))
-  println(jarray("""[true,false]"""))
-  println(jarray("""["joost","bernard"]"""))
-  println(pair("""    "foobar"   :  4   """))
-  println(pair("""    "kl"   :  "dsf349208ds AAA"   """))
-  println(pair("""    "kl"   :  true   """))
-  println(pair("""    "kl"   :  [   "1",  3   ]      """))
-  println(jsonParser(MyJSONParser.example))
+//  println(jnull.run("null"))
+//  println(jnumber.run("444.44E4"))
+//  println(jstring.run(""""hel9403""""))
+//  println(jbool.run("false"))
+//  val test2 = sequence(char(','), jstring)
+//  println(test2.run(""""aaa","aaa","aaa","aaa""""))
+//  println(jarray.run("""[4,4,4,4]"""))
+//  println(jarray.run("""[null,null]"""))
+//  println(jarray.run("""[true,false]"""))
+//  println(jarray.run("""["joost","bernard"]"""))
+//  println(pair.run("""    "foobar"   :  4   """))
+//  println(pair.run("""    "kl"   :  "dsf349208ds AAA"   """))
+//  println(pair.run("""    "kl"   :  true   """))
+//  println(pair.run("""    "kl"   :  [   "1",  3   ]      """))
+  println(jsonParser.run(MyJSONParser.example))
 

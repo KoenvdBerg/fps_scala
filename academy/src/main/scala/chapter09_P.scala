@@ -8,19 +8,31 @@ object Combinator:
 
   case class Location(input: String, offset: Int = 0):
     lazy val line: Int = input.slice(0, offset + 1).count(_ == '\n') + 1
-    lazy val col: Int = input.slice(0, offset + 1).lastIndexOf('\n') match
-      case -1 => offset + 1
+    lazy val prevLine: Int = input.slice(0, offset + 1).lastIndexOf('\n')
+    lazy val nextLine: Int = input.slice(offset, offset + 1000).indexWhere(_ == '\n')
+    lazy val col: Int = prevLine match
+      case -1        => offset + 1
       case lineStart => offset - lineStart
-    def errorLocation(e: ParserError): Location = ???
-    def errorMessage(e: ParserError): String = ???
+    lazy val thisLine: String = nextLine match
+      case -1        => input.slice(prevLine, input.length)
+      case endOfLine => input.slice(prevLine, offset + endOfLine)
 
-  case class ParserError(stack: List[(Location, String)])
+    def errorMessage(lbl: String, exp: String): String =
+      s"""
+         |--------  PARSING ERROR  --------
+         |Location: (line: $line, col: $col)
+         |Label: $lbl
+         |$thisLine
+         |${List.fill(col-1)(" ").mkString("") + "^"}
+         |${List.fill((col-4).max(0))(" ").mkString("") + "ERROR HERE"}
+         |
+         |Expected: $exp
+         |""".stripMargin
 
 
-  // type Parser[+A] = State[String, Either[String, A]]
-  // type Parser[+A] = String => Either[String, A]
 
-  type Parser[+A] = String => (Either[String, A], String)
+//  case class Read(next: String, loc: Location)
+  type Parser[+A] = Location => (Either[String, A], Location)
 
 
   implicit def operators[A](p: Parser[A]): P[A] = P[A](p)
@@ -34,32 +46,36 @@ object Combinator:
     def many1[AA >: A]: Parser[List[A]] = P.many1(p)
     def slice: Parser[String] = P.slice(p)
     def **[B >: A](p2: Parser[B]): Parser[(A, B)] = P.product(p, p2)
+    def run[AA>:A](input: String): Either[String, A] = P.run(p)(input)
 
   object P:
     // PRIMITIVES
-    def run[A](p: Parser[A])(input: String): Either[String, A] = p(input)._1
+    def run[A](p: Parser[A])(input: String): Either[String, A] = p(Location(input))._1
     implicit def string(s: String): Parser[String] =
-      (i: String) =>
-        val (h, next): (String, String) = i.splitAt(s.length)
-        // if s.isEmpty then Right(s)
-        if h == s then (Right(h), next)
-        else (Left(s"ERROR reporting to be included: ${h}"), next)
+      (i: Location) =>
+        val searchUntil: Int = s.length + i.offset
+        val h: String = i.input.slice(i.offset, searchUntil)
+        if h == s then (Right(h), Location(i.input, searchUntil))
+        else
+          (Left(i.errorMessage("none", s)), i)
     implicit def regex(s: Regex): Parser[String] =
-      (i: String) =>
-        s.findPrefixOf(i) match
+      (i: Location) =>
+        val (_, searchSpace): (String, String) = i.input.splitAt(i.offset)
+        s.findPrefixOf(searchSpace) match
           case Some(s) =>
-            val next: String = i.replaceFirst(s, "")
-            (Right(s), next)
-          case None    => (Left(s"ERROR reporting to be included: ${s}"), i)
+            (Right(s), Location(i.input, i.offset + s.length))
+          case None    => (Left(i.errorMessage("none", s.toString())),  i)
     def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] =
-      (i: String) =>
+      (i: Location) =>
         s1(i) match
-          case (r@Right(_), s) => (r, s)
-          // TODO: implement error handling below:
-          case (Left(_), _)    => s2(i)
+          case (r@Right(_), loc) => (r, loc)
+          case (Left(e), o)    =>
+//            println(e)
+            // TODO: fix the error that now is in the price.
+            s2(o)
     def succeed[A](a: A): Parser[A] =
       // map(string(""))(_ => a)
-      (i: String) => (Right(a), i)
+      (i: Location) => (Right(a), i)
 
     def slice[A](p: Parser[A]): Parser[String] =
       map(p){
@@ -75,9 +91,9 @@ object Combinator:
     def map[A, B](p2: Parser[A])(f: A => B): Parser[B] =
       flatMap(p2)(pp => succeed(f(pp)))
     def flatMap[A, B](p: Parser[A])(f: A => Parser[B]): Parser[B] =
-      (i: String) =>
+      (i: Location) =>
         p(i) match
-          case (Right(v), next) => f(v)(next)
+          case (Right(v), loc) => f(v)(loc)
           //TODO: implement error handling below:
           case (Left(e), next)  => (Left(e), next)
 
@@ -189,7 +205,7 @@ object Combinator:
 
   def manyCheck(in: Gen[String]): Prop =
     val x: Parser[Int] = many(regex("""[a-zA-Z]""".r)).map(_.length)
-    val y: Parser[Int] = (i: String) => (Right(i.length), i)
+    val y: Parser[Int] = (i: Location) => (Right(i.input.length), i)
     equal(x, y)(in)
 
   def regexCheck: Prop =
@@ -198,7 +214,7 @@ object Combinator:
       val result1: Either[String, List[String]] = run(x)("aged:9aged:5")
       val result2: Either[String, List[String]] = run(x)("aged:9aged:five")
       result1 == Right(List("aged:9", "aged:5")) &&
-      result2 == Left("ERROR reporting to be included")
+      result2 == Left("ERROR reporting to be included: aged:[0-9]")
     }
 
   def sliceCheck: Prop =
@@ -209,7 +225,7 @@ object Combinator:
       run(x)("aababab") == Right("aababab") &&
         run(y)("12345467XXX") == Right("12345467") &&
         run(y)("skdlf2390") == Right("") &&
-        run(z)("skdlf2390") == Left("ERROR reporting to be included")
+        run(z)("skdlf2390") == Left("ERROR reporting to be included: [0-9]")
     }
 
 
