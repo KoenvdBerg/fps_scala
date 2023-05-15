@@ -6,27 +6,26 @@ import scala.language.implicitConversions
 
 object Combinator:
 
-  case class Location(input: String, offset: Int = 0, label: String = ""):
-    lazy val line: Int = input.slice(0, offset + 1).count(_ == '\n') + 1
-    lazy val prevLine: Int = input.slice(0, offset + 1).lastIndexOf('\n')
-    lazy val nextLine: Int = input.slice(offset, offset + 1000).indexWhere(_ == '\n')
+  case class Location(input: String, index: Int = 0, errorIndex: Int = 0):
+    lazy val line: Int = input.slice(0, errorIndex + 1).count(_ == '\n') + 1
+    lazy val prevLine: Int = input.slice(0, errorIndex + 1).lastIndexOf('\n')
+    lazy val nextLine: Int = input.slice(errorIndex, errorIndex + 1000).indexWhere(_ == '\n')
     lazy val col: Int = prevLine match
-      case -1        => offset + 1
-      case lineStart => offset - lineStart
+      case -1        => errorIndex + 1
+      case lineStart => errorIndex - lineStart
     lazy val thisLine: String = nextLine match
       case -1        => input.slice(prevLine, input.length)
-      case endOfLine => input.slice(prevLine, offset + endOfLine)
+      case endOfLine => input.slice(prevLine, errorIndex + endOfLine)
 
-    def errorMessage(lbl: String, expected: String): String =
+    def updateErrorIndex(i: Int): Location = Location(input, index, i)
+
+    val errorMessage: String =
       s"""
          |--------  PARSING ERROR  --------
-         |Location: (line: $line, col: $col, n: $offset)
-         |Label: $lbl
+         |Location: (line: $line, col: $col, n: $errorIndex)
          |$thisLine
          |${List.fill(col-1)(" ").mkString("") + "^"}
-         |${List.fill((col-4).max(0))(" ").mkString("") + "ERROR HERE"}
-         |
-         |Expected: $expected
+         |${List.fill((col-5).max(0))(" ").mkString("") + "ERROR HERE"}
          |
          |""".stripMargin
 
@@ -52,28 +51,28 @@ object Combinator:
     def run[A](p: Parser[A])(input: String): Either[String, A] = p(Location(input))._1
     implicit def string(s: String): Parser[String] =
       (i: Location) =>
-        val searchUntil: Int = s.length + i.offset
-        val h: String = i.input.slice(i.offset, searchUntil)
+        val searchUntil: Int = s.length + i.index
+        val h: String = i.input.slice(i.index, searchUntil)
         if h == s then
-          (Right(h), Location(i.input, searchUntil))
+          (Right(h), Location(i.input, searchUntil, searchUntil.max(i.errorIndex)))
         else
-          (Left(i.errorMessage(i.label, s)), i)
+          (Left(i.errorMessage), i)
     implicit def regex(s: Regex): Parser[String] =
       (i: Location) =>
-        val (_, searchSpace): (String, String) = i.input.splitAt(i.offset)
+        val (_, searchSpace): (String, String) = i.input.splitAt(i.index)
         s.findPrefixOf(searchSpace) match
           case Some(s) =>
-            (Right(s), Location(i.input, i.offset + s.length))
+            val searchUntil: Int = i.index + s.length
+            (Right(s), Location(i.input, searchUntil, searchUntil.max(i.errorIndex)))
           case None    =>
-            (Left(i.errorMessage(i.label, s.toString())), i)
+            (Left(i.errorMessage), i)
     def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] =
       (i: Location) =>
         s1(i) match
-          case (Left(_), _)      => s2(i)
-          case r => r
+          case (Left(_), loc) => s2(i.updateErrorIndex(loc.errorIndex))
+          case r              => r
 
     def succeed[A](a: A): Parser[A] =
-      // map(string(""))(_ => a)
       (i: Location) => (Right(a), i)
 
     def slice[A](p: Parser[A]): Parser[String] =
@@ -93,7 +92,7 @@ object Combinator:
       (i: Location) =>
         p(i) match
           case (Right(v), loc) => f(v)(loc)
-          case (Left(e), _)  => (Left(e), i)
+          case (Left(e), loc)  => (Left(e), i.updateErrorIndex(loc.errorIndex))
 
     // HELPER FUNCTIONS
     def many[A](p: Parser[A]): Parser[List[A]] =
@@ -129,7 +128,7 @@ object Combinator:
     // COMBINATORS
     val digit: Parser[Int] = regex("""[0-9]""".r).map(_.toInt)  //skipWhiteSpace(regex("""[0-9]""".r).map(_.toInt))
     val letter: Parser[String] = regex("""[a-zA-Z\s]""".r)
-    val specials: Parser[String] = string("?") | string("@")
+    val specials: Parser[String] = regex("""[@\-_:,./=\\(\\)\\*;\\?`'&]""".r)
     val whitespace: Parser[String] = regex("""[\s\t\r\n\f]""".r)
     val number: Parser[String] = digit.many1.slice
     val decimal: Parser[String] = for {
