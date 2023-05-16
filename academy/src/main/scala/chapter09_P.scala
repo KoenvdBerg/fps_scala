@@ -6,7 +6,7 @@ import scala.language.implicitConversions
 
 object Combinator:
 
-  case class Location(input: String, index: Int = 0, errorIndex: Int = 0):
+  case class Location(input: String, index: Int = 0, errorIndex: Int = 0, trace: String = "baz"):
     lazy val line: Int = input.slice(0, errorIndex + 1).count(_ == '\n') + 1
     lazy val prevLine: Int = input.slice(0, errorIndex + 1).lastIndexOf('\n')
     lazy val nextLine: Int = input.slice(errorIndex, errorIndex + 1000).indexWhere(_ == '\n')
@@ -17,16 +17,23 @@ object Combinator:
       case -1        => input.slice(prevLine, input.length)
       case endOfLine => input.slice(prevLine, errorIndex + endOfLine)
 
-    def updateErrorIndex(i: Int): Location = Location(input, index, i)
+    def updateErrorIndex(i: Int, t: String): Location = Location(input, index, i, t)
 
-    val errorMessage: String =
+    def makeErrorMessage(exp: String): String =
+      val errors: String = if index == errorIndex then
+        errorMessage(exp)
+      else
+        errorMessage(trace) + Location(input, index, index, trace).errorMessage(exp)
+      s"\n--------  PARSING ERROR(S)  --------" + errors
+
+
+    def errorMessage(exp: String): String =
       s"""
-         |--------  PARSING ERROR  --------
-         |Location: (line: $line, col: $col, n: $errorIndex)
+         |Location: (line: $line, col: $col, total chars parsed: $errorIndex)
+         |Expected: '$exp'
          |$thisLine
          |${List.fill(col-1)(" ").mkString("") + "^"}
          |${List.fill((col-5).max(0))(" ").mkString("") + "ERROR HERE"}
-         |
          |""".stripMargin
 
 
@@ -54,22 +61,24 @@ object Combinator:
         val searchUntil: Int = s.length + i.index
         val h: String = i.input.slice(i.index, searchUntil)
         if h == s then
-          (Right(h), Location(i.input, searchUntil, searchUntil.max(i.errorIndex)))
+          (Right(h), Location(i.input, searchUntil, searchUntil.max(i.errorIndex),
+            if searchUntil > i.errorIndex then s else i.trace))
         else
-          (Left(i.errorMessage), i)
+          (Left(i.makeErrorMessage(s)), i)
     implicit def regex(s: Regex): Parser[String] =
       (i: Location) =>
         val (_, searchSpace): (String, String) = i.input.splitAt(i.index)
         s.findPrefixOf(searchSpace) match
           case Some(s) =>
             val searchUntil: Int = i.index + s.length
-            (Right(s), Location(i.input, searchUntil, searchUntil.max(i.errorIndex)))
+            (Right(s), Location(i.input, searchUntil, searchUntil.max(i.errorIndex),
+              if searchUntil > i.errorIndex then s else i.trace))
           case None    =>
-            (Left(i.errorMessage), i)
+            (Left(i.makeErrorMessage(s.toString())), i)
     def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] =
       (i: Location) =>
         s1(i) match
-          case (Left(_), loc) => s2(i.updateErrorIndex(loc.errorIndex))
+          case (Left(_), loc) => s2(i.updateErrorIndex(loc.errorIndex, loc.trace))
           case r              => r
 
     def succeed[A](a: A): Parser[A] =
@@ -92,7 +101,7 @@ object Combinator:
       (i: Location) =>
         p(i) match
           case (Right(v), loc) => f(v)(loc)
-          case (Left(e), loc)  => (Left(e), i.updateErrorIndex(loc.errorIndex))
+          case (Left(e), loc)  => (Left(e), i.updateErrorIndex(loc.errorIndex, loc.trace))
 
     // HELPER FUNCTIONS
     def many[A](p: Parser[A]): Parser[List[A]] =
@@ -210,8 +219,8 @@ object Combinator:
       val x: Parser[List[String]] = listOfN(2, regex("aged:[0-9]".r))
       val result1: Either[String, List[String]] = run(x)("aged:9aged:5")
       val result2: Either[String, List[String]] = run(x)("aged:9aged:five")
-      result1 == Right(List("aged:9", "aged:5")) &&
-      result2 == Left("ERROR reporting to be included: aged:[0-9]")
+      result1 == Right(List("aged:9", "aged:5")) && result2.isLeft
+
     }
 
   def sliceCheck: Prop =
@@ -222,7 +231,7 @@ object Combinator:
       run(x)("aababab") == Right("aababab") &&
         run(y)("12345467XXX") == Right("12345467") &&
         run(y)("skdlf2390") == Right("") &&
-        run(z)("skdlf2390") == Left("ERROR reporting to be included: [0-9]")
+        run(z)("skdlf2390").isLeft
     }
 
 
