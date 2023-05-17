@@ -1,7 +1,6 @@
 import scala.util.matching.Regex
 import chapter09.Parsers
 
-import java.awt.Panel
 import scala.language.implicitConversions
 
 object Combinator:
@@ -39,24 +38,22 @@ object Combinator:
 
   type Parser[+A] = Location => (Either[String, A], Location)
 
-
-  implicit def operators[A](p: Parser[A]): P[A] = P[A](p)
-  case class P[+A](p: Parser[A]):
-    def map[AA>:A, B](f: A => B): Parser[B] =
+  extension[A](p: Parser[A])
+    def map[AA >: A, B](f: A => B): Parser[B] =
       P.flatMap(p)(pp => P.succeed(f(pp)))
-    def flatMap[AA>:A, B](f: A => Parser[B]): Parser[B] = P.flatMap(p)(f)
+    def flatMap[AA >: A, B](f: A => Parser[B]): Parser[B] = P.flatMap(p)(f)
     def |[B >: A](p2: Parser[B]): Parser[B] = P.or(p, p2)
     def or[B >: A](p2: Parser[B]): Parser[B] = P.or(p, p2)
     def many[AA >: A]: Parser[List[A]] = P.many(p)
     def many1[AA >: A]: Parser[List[A]] = P.many1(p)
     def slice: Parser[String] = P.slice(p)
     def **[B >: A](p2: Parser[B]): Parser[(A, B)] = P.product(p, p2)
-    def run[AA>:A](input: String): Either[String, A] = P.run(p)(input)
+    def run[AA >: A](input: String): Either[String, A] = P.run(p)(input)
 
   object P:
     // PRIMITIVES
     def run[A](p: Parser[A])(input: String): Either[String, A] = p(Location(input))._1
-    implicit def string(s: String): Parser[String] =
+    def string(s: String): Parser[String] =
       (i: Location) =>
         val searchUntil: Int = s.length + i.index
         val h: String = i.input.slice(i.index, searchUntil)
@@ -65,7 +62,7 @@ object Combinator:
             if searchUntil > i.errorIndex then s else i.trace))
         else
           (Left(i.makeErrorMessage(s)), i)
-    implicit def regex(s: Regex): Parser[String] =
+    def regex(s: Regex): Parser[String] =
       (i: Location) =>
         val (_, searchSpace): (String, String) = i.input.splitAt(i.index)
         s.findPrefixOf(searchSpace) match
@@ -121,6 +118,7 @@ object Combinator:
     def other[A, B](p: Parser[A], p2: Parser[B]): Parser[B] =
       for {_ <- p; pp <- p2} yield pp
 
+    // TODO: implement only skipping whitespace in the front
     def skipWhiteSpace[A](p: Parser[A]): Parser[A] =
       for {
         _ <- whitespace.many
@@ -161,7 +159,7 @@ object Combinator:
 @main def testP: Unit =
   import State.*
   import testing.*
-  import Combinator.*
+  import Combinator.{Parser, P}
   import Combinator.P.*
 
   val stringGen: Gen[String] = Gen.stringOfN(10, Gen.char)
@@ -211,7 +209,7 @@ object Combinator:
 
   def manyCheck(in: Gen[String]): Prop =
     val x: Parser[Int] = many(regex("""[a-zA-Z]""".r)).map(_.length)
-    val y: Parser[Int] = (i: Location) => (Right(i.input.length), i)
+    val y: Parser[Int] = (i: Combinator.Location) => (Right(i.input.length), i)
     equal(x, y)(in)
 
   def regexCheck: Prop =
