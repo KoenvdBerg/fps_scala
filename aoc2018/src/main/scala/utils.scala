@@ -2,6 +2,7 @@ package aoc2018
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.util.matching.Regex
 
 object Grid2D:
 
