@@ -14,46 +14,45 @@ object day19 extends App:
     System.currentTimeMillis
 
   case class Operation(op: String, a: Int, b: Int, c: Int):
-    def addr(in: Array[Int]): Array[Int] = {in(c) = in(a) + in(b); in}
-    def addi(in: Array[Int]): Array[Int] = {in(c) = in(a) + b; in}
-    def mulr(in: Array[Int]): Array[Int] = {in(c) = in(a) * in(b); in}
-    def muli(in: Array[Int]): Array[Int] = {in(c) = in(a) * b; in}
-    def banr(in: Array[Int]): Array[Int] = {in(c) = in(a) & in(b); in}
-    def bani(in: Array[Int]): Array[Int] = {in(c) = in(a) & b; in}
-    def borr(in: Array[Int]): Array[Int] = {in(c) = in(a) | in(b); in}
-    def bori(in: Array[Int]): Array[Int] = {in(c) = in(a) | b; in}
-    def setr(in: Array[Int]): Array[Int] = {in(c) = in(a); in}
-    def seti(in: Array[Int]): Array[Int] = {in(c) = a; in}
-    def gtir(in: Array[Int]): Array[Int] = {in(c) = if a > in(b) then 1 else 0; in}
-    def gtri(in: Array[Int]): Array[Int] = {in(c) = if in(a) > b then 1 else 0; in}
-    def gtrr(in: Array[Int]): Array[Int] = {in(c) = if in(a) > in(b) then 1 else 0; in}
-    def eqir(in: Array[Int]): Array[Int] = {in(c) = if a == in(b) then 1 else 0; in}
-    def eqri(in: Array[Int]): Array[Int] = {in(c) = if in(a) == b then 1 else 0; in}
-    def eqrr(in: Array[Int]): Array[Int] = {in(c) = if in(a) == in(b) then 1 else 0; in}
+    def addr(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) + in(b))
+    def addi(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) + b)
+    def mulr(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) * in(b))
+    def muli(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) * b)
+    def banr(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) & in(b))
+    def bani(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) & b)
+    def borr(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) | in(b))
+    def bori(in: Vector[Int]): Vector[Int] = in.updated(c, in(a) | b)
+    def setr(in: Vector[Int]): Vector[Int] = in.updated(c, in(a))
+    def seti(in: Vector[Int]): Vector[Int] = in.updated(c, a)
+    def gtir(in: Vector[Int]): Vector[Int] = in.updated(c, if a > in(b) then 1  else 0)
+    def gtri(in: Vector[Int]): Vector[Int] = in.updated(c, if in(a) > b then 1 else 0)
+    def gtrr(in: Vector[Int]): Vector[Int] = in.updated(c, if in(a) > in(b) then 1 else 0)
+    def eqir(in: Vector[Int]): Vector[Int] = in.updated(c, if a == in(b) then 1 else 0)
+    def eqri(in: Vector[Int]): Vector[Int] = in.updated(c, if in(a) == b then 1 else 0)
+    def eqrr(in: Vector[Int]): Vector[Int] = in.updated(c, if in(a) == in(b) then 1 else 0)
 
-    val ops: Map[String, Array[Int] => Array[Int]] = Map(
+    val ops: Map[String, Vector[Int] => Vector[Int]] = Map(
       "addr" -> addr, "addi" -> addi, "mulr" -> mulr, "muli" -> muli, "banr" -> banr, "bani" -> bani,
       "borr" -> borr, "bori" -> bori, "setr" -> setr, "seti" -> seti, "gtir" -> gtir, "gtri" -> gtri,
       "gtrr" -> gtrr, "eqir" -> eqir, "eqri" -> eqri, "eqrr" -> eqrr)
 
     def run(input: Vector[Int]): Vector[Int] =
-      val executable: Array[Int] => Array[Int] = ops(op)
-      executable(input.toArray).toVector
+      val executable: Vector[Int] => Vector[Int] = ops.getOrElse(op, sys.error("BOOM!!!"))
+      executable(input)
 
 
 
   private val input: (Vector[Operation], Int) =
 
     def parseOps(s: String): Option[Operation] =
-      if s.contains("#ip") then None
-      else
-        val in: Vector[String] = s.split(" ").toVector
-        Some(Operation(in(0), in(1).toInt, in(2).toInt, in(3).toInt))
+      s match
+        case s"$op $i0 $i1 $i2" => Some(Operation(op, i0.toInt, i1.toInt, i2.toInt))
+        case _                  => None
 
     def parseIp(s: String): Option[Int] =
-      if s.contains("#ip") then
-        Some(s.split(" ")(1).toInt)
-      else None
+      s match
+        case s"#ip $ip" => Some(ip.toInt)
+        case _ => None
 
     val lines: Vector[String] = Source
       .fromResource(s"day${day}.txt")
@@ -62,21 +61,16 @@ object day19 extends App:
 
     (lines.flatMap(parseOps), lines.flatMap(parseIp).head)
 
-  def incrementIp(reg: Vector[Int], ip: Int): Vector[Int] =
-    val tmp: Array[Int] = reg.toArray
-    tmp(ip) = tmp(ip) + 1
-    tmp.toVector
-
+  def incrementIp(reg: Vector[Int], ip: Int): Vector[Int] = reg.updated(ip, reg(ip) + 1)
 
   def runProgram(prg: Vector[Operation], ip: Int, n: Int = 0)(maxIts: Int, reg: Vector[Int]): Vector[Int] =
     if n >= maxIts && maxIts != -1 then reg
     else
-      val instruction: Try[Operation] = Try(prg(reg(ip)))
+      val instruction: Try[Operation] = Try(prg(reg(ip)))  // yields Failure if the ip index is not present in the prg
       instruction match
         case Failure(_) => {println("HIT") ; reg}
         case Success(i) =>
           val next: Vector[Int] = i.run(reg)
-//          if next.head != reg.head then { println(reg) ; println(next) }
           runProgram(prg, ip, n + 1)(maxIts, incrementIp(next, ip))
 
   val prg: (Int, Vector[Int]) => Vector[Int] = runProgram(input._1, input._2)
