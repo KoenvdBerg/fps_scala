@@ -9,7 +9,7 @@ import scala.collection.immutable.Set
  *
  * The difficulty in this puzzle is the fact that you've to recognize that you've got to dig into the input file
  * code and decipher what's exactly going on. Doing that, I reached an instruction at index 28 that works with
- * register 0 and can cause the program to halt/crash with an out of bounds error:
+ * register 0 and can cause the program to halt/crash with an out of bounds error (see also day21_notes.txt):
  *
  * Instruction: eqrr 3 0 1
  * Translaction to Scala: registers.updated(1, if in(3) == in(0) then 1 else 0)
@@ -93,16 +93,22 @@ object day21 extends App:
 
   def incrementIp(reg: Vector[Int], ip: Int): Vector[Int] = reg.updated(ip, reg(ip) + 1)
 
-  def runProgram(prg: Vector[Operation], ip: Int, n: Int = 0)(maxIts: Int, reg: Vector[Int], crashInstruction: Int): Vector[Int] =
+  /**
+   * The function below will run the input program until the program crashes. A crash is defined as a call to an
+   * instruction pointer that doesn't exist (i.e. IndexError). The `ip` is the index of the register that holds
+   * the instruction number to execute. The `program` holds all the instructions as obtained from the input file in order.
+   */
+  def runProgram(program: Vector[Operation], ip: Int, n: Int = 0)(maxIts: Int, reg: Vector[Int], crashInstruction: Int): Vector[Int] =
     if n >= maxIts && maxIts != -1 then reg
     else if reg(ip) == crashInstruction then reg
     else
-      val instruction: Try[Operation] = Try(prg(reg(ip)))
+      // get instruction based on the instruction pointer (ip)
+      val instruction: Try[Operation] = Try(program(reg(ip)))  // yields Failure if the ip index is not present in the program
       instruction match
-        case Failure(_) => {println("HIT") ; reg}
+        case Failure(_) => {println("HIT") ; reg}  // exit condition: instruction was not available thus program has crashed
         case Success(i) =>
-          val next: Vector[Int] = i.run(reg)
-          runProgram(prg, ip, n + 1)(maxIts, incrementIp(next, ip), crashInstruction)
+          val next: Vector[Int] = i.run(reg)  // run the instruction and update the registers
+          runProgram(program, ip, n + 1)(maxIts, incrementIp(next, ip), crashInstruction)  // increment the instruction pointer
 
 
   /**
