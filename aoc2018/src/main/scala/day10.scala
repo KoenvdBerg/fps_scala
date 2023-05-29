@@ -2,26 +2,37 @@ import scala.io.*
 import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
+import aoc2018.Grid2D.Point
 
 /**
- * PART 1:
+ * PART 1 & 2:
  *
- * The general process for solving this puzzle was the following:
+ * The essence of this problem is that the stars first contract to their most compact form (i.e. the message) and then
+ * start expanding again towards infinity. My solution works by looking only at the maximum Y-coordinate found for
+ * every star in every iteration. This Y-coordinate forms a parabola over time that looks like this:
  *
- *  1. read in the input.txt file and parse it to a Star case class
- *  2. create a function that updates a star based on its velocity on the x and y axes
- *  3. create a window with a variable width and height. This window has the following specs:
- *    a. it can be nicely printed to stdout.
- *    b. it checks whether or not any star enters the window. If so, the star coordinate is represented by #.
- *       All other coordinates are represented by ".".
- *  4. create an algorithm that updates the night sky and only prints if any star is present in the focus window.
- *     for every iteration, do:
- *     a. update every star.
- *     b. if no star has entered the focus window, keep on loading and reiterating.
- *     c. if any star is in the window, print time and the window.
+ *  y  │  x                   x
+ *     │  x                  xx
+ *     │  xx                 x
+ *     │   xx               xx
+ *     │    x              xx
+ *     │    xx            xx
+ *     │     xx         xxx
+ *     │      xxxx   xxx
+ *     │         xxOxx
+ *     │
+ *     └──────────────────────
+ *                 H      t ->
  *
- *  Using the above code, I could see the stars forming the hidden message, and halt the code at the appropriate time.
- *  Then I just needed to check the message by scrolling through the output in the terminal.
+ * At point O the lowest Y coordinate is found at time H. At that time the stars form the message. The solution works
+ * like this:
+ *
+ * 0) parse in the coordinates and directions of the stars
+ * 1) find the lowest point O in the stars for the Y-coordinate.
+ * 2) print the stars at point H to the terminal using my generalized grid printer. The stars are also aligned to the
+ * origin (i.e. point x=0, y=0)
+ *
+ * The above has been defined in the function: alignStarsInSky()
  *
  */
 
@@ -34,11 +45,11 @@ object day10 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input: Vector[Star] =
+  private val input: Vector[StarVector] =
 
-    val parser: String => Star = {
-      case s"position=<${x}, ${y}> velocity=<${vx}, ${vy}>" => Star(Point(x.strip().toInt, y.strip().toInt),
-                                                                    vx.strip().toInt, vy.strip().toInt)
+    val parser: String => StarVector = {
+      case s"position=<${x}, ${y}> velocity=<${vx}, ${vy}>" =>
+        StarVector(Point(x.strip().toInt, y.strip().toInt), Point(vx.strip().toInt, vy.strip().toInt))
       case _ => sys.error("boom")
     }
 
@@ -48,65 +59,35 @@ object day10 extends App:
       .toVector
       .map(parser)
 
-  case class Point(x: Int, y: Int)
-  case class Star(p: Point, vx: Int, vy: Int):
+  case class StarVector(pos: Point, dir: Point):
+    def updateCoords: StarVector =
+      // updates the starvector based on direction
+      this.copy(pos = Point(pos.x + dir.x, pos.y + dir.y))
 
-    def updateCoords(): Star =
-      Star(Point(this.p.x + this.vx, this.p.y + this.vy), this.vx, this.vy)
+  object Window:
+    def windowMaxY(in: Vector[StarVector]): Int = in.maxBy((s: StarVector) => s.pos.y).pos.y
 
-  object Sky:
+    def centerToOrigin(in: Vector[StarVector]): Vector[StarVector] =
+      // this ensures that the window can be nicely printed without whitespace around the borders.
+      val minX: Int = in.minBy((s: StarVector) => s.pos.x).pos.x
+      val minY: Int = in.minBy((s: StarVector) => s.pos.y).pos.y
+      in.map((s: StarVector) => s.copy(pos = Point(s.pos.x - minX, s.pos.y - minY)))
 
-    private val width: Int = 250
-    private val height: Int = 250
-    private val window: Vector[Point] =
-      (for {
-        x <- Range(0, width)
-        y <- Range(0, height)
-      } yield Point(y, x)).toVector
-
-    private def printWindow(starPoints: Vector[Point]): Unit =
-      def aligner(z: String, p: Point): String =
-        if starPoints.contains(p) then
-          z + "#"
-        else
-          z + "."
-
-      def skyToStdOut(s: String): Unit =
-        if s == "" then println()
-        else
-          val (h, t) = s.splitAt(width)
-          println(h)
-          skyToStdOut(t)
-
-      val sky: String = window.foldLeft("")(aligner)
-      skyToStdOut(sky)
-
-    def alignStarsInSky(s: Vector[Star], loading: Boolean = true, t: Int = 0): Unit =
-      val next: Vector[Star] = s.map(_.updateCoords())
-
-      // stars have reached the window. So now it starts printing to stdout
-      if math.abs(s.head.p.x) < width && math.abs(s.head.p.y) < width then
-        val starPoints: Vector[Point] = s.map(_.p)
-        println(t)
-        printWindow(starPoints)
-        alignStarsInSky(next, false, t + 1)
-
-      // stars have not reached the window yet, so keep on loading and updating the nights sky
-      else if loading then
-        println("LOADING...")
-        alignStarsInSky(next, true, t + 1)
-
-      // exit condition --> loading has been finished and all stars have left the window
+    def alignStarsInSky(s: Vector[StarVector], time: Int = 0): (Vector[StarVector], Int) =
+      val thisWindow: Int = windowMaxY(s)                   // current max Y-coordinate
+      val next: Vector[StarVector] = s.map(_.updateCoords)
+      val nextWindow: Int = windowMaxY(next)                // next max Y-coordinate
+      if nextWindow > thisWindow then (centerToOrigin(s), time)  // exit condition, return stars and total time
       else
-        println()
+        alignStarsInSky(next, time + 1)
 
-  Sky.alignStarsInSky(input)
-  private val answer1 = "HJBJXRAZ"
-  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
+  val res1: (Vector[StarVector], Int) = Window.alignStarsInSky(input)
+  Point.print2dGrid(res1._1.map((s: StarVector) => (s.pos, '#')), ' ')
+  println(s"Answer day $day part 1: ^^^^^^^^ [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
     System.currentTimeMillis
 
-  private val answer2 = "10641"
+  private val answer2 = res1._2
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")

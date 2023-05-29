@@ -58,8 +58,9 @@ object Grid2D:
           else if x == ob._1.x && y == ob._1.y then {print(ob._2); go(t, x + 1, y)}
           else {print(default); go(obs, x + 1, y)}
         case Vector() => println()
+        case _ => sys.error("print2dGrid ERROR")
 
-      go(obstacles.sortBy(_._1.toTuple.swap))
+      go(obstacles.sortBy(_._1.toTuple.swap).distinct)
 
 
 object Algorithms:
