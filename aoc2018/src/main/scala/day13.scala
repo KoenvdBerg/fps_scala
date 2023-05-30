@@ -131,7 +131,7 @@ object day13 extends App:
                 (Some(nextCart.loc), acc)  // crash happens so return location
               else
                 go(t, nextCart +: acc)     // continue updating carts movement
-        case Vector() => (None, acc.reverse)
+        case _ => (None, acc.reverse)
 
     val (loc, newCarts): (Option[Point], Vector[Cart]) = go(carts)
     loc match
@@ -159,7 +159,7 @@ object day13 extends App:
                 go(t.filter(_.loc != nextCart.loc), acc.filter(_.loc != nextCart.loc))
               else
                 go(t, nextCart +: acc)
-        case Vector() => acc.reverse
+        case _ => acc.reverse
 
     if carts.length == 1 then carts.head
     else

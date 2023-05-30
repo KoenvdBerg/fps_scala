@@ -81,11 +81,11 @@ object day09 extends App:
         if marble % 23 == 0 then
           rotateVector(-7, circle) match
             case h +: t => (h + marble, t)  // updating score, don't add marble to circle
-            case Vector() => sys.error("cannot take head of empty vector")
+            case _ => sys.error("cannot take head of empty vector")
         else
           rotateVector(2, circle) match
             case h +: t => (0L, marble +: h +: t)  // score is 0, adding marble to circle
-            case Vector() => sys.error("marble circle cannot be empty")
+            case _ => sys.error("marble circle cannot be empty")
 
       // the current player is based off the total N players mod n. Update the scoreboard for the current player.
       val thisPlayer: Int = (marble % nPlayers).toInt
