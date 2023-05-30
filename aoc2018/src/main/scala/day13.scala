@@ -2,7 +2,40 @@ import scala.io.*
 import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
+import aoc2018.VectorUtils.rotateVector
 
+
+/**
+ *
+ * PART 1:
+ *
+ * This was a really fun puzzle to solve. The core of the puzzle is to work with moving points and to be able to
+ * change the movement of these points based on a certain rail switch. The movement looks like this:
+ *
+ * `>` : x=1, y=0
+ * `<` : x=-1, y=0
+ * `^` : x=0, y=-1
+ * `v` : x=0, y=1
+ *
+ * The tree movements perform the following operation on a moving cart:
+ *
+ * `/` : x=-y, y=-x
+ * `\` : x=y, y=x
+ * `_` : x=x, y=y (i.e. go straight)
+ * `+` : either `/`, `\`, `_` based on tracker per cart.
+ *
+ * If a cart hits an intersection, it's important to know where the cart came from the handle the correct form of
+ * left, right or straight.
+ *
+ * The simulate function below ties al the rules for the cart model together and sees when a cart crashes. If that
+ * happens, it returns the location of the cart crash.
+ *
+ * PART 2:
+ *
+ * Here I could reuse large parts of the code for part 1, but I changed the simulate function to remove crashed carts
+ * and keep continuing until the last cart.
+ *
+ */
 
 object day13 extends App:
 
@@ -45,13 +78,6 @@ object day13 extends App:
       Cart(loc, dir, intersect)
 
     def handleIntersect: Cart =
-
-      def rotateVector[A](n: Int, s: Vector[A]): Vector[A] =
-        if s.isEmpty then s
-        else
-          val nbound: Int = n % s.length // skipping the full rotation rounds
-          if nbound < 0 then rotateVector(nbound + s.length, s)
-          else s.drop(nbound) ++ s.take(nbound)
 
       val newDir: Point = (intersect.head, dir) match
         case (Back, Point(0, _)) => backwardSwitch.dir

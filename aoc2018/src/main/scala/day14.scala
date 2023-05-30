@@ -3,7 +3,20 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
-
+/**
+ *
+ * PART 1:
+ *
+ * The solution to this puzzle was to model the recipe making game and then run the simulation.
+ *
+ * Big lesson here is to use Vectors and not lists to track the state of the recipes for a big bump in performance.
+ *
+ * PART 2:
+ *
+ * Reused the code from part 1 with slight modification so that it can look for a certain number in the recipes.
+ *
+ *
+ */
 object day14 extends App:
 
   private val day: String =

@@ -3,6 +3,41 @@ import math.*
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
+/**
+ *
+ * PART 1:
+ *
+ * The difficult part of this puzzle was in my opinion that you had to take the numbering of the pots into account. This
+ * was difficult, because the plants could obtain negative numbers towards the left side of the plant row. To determine
+ * the correct numbering, I computed the offset towards the end of the simulation by making sure that each generation
+ * 1 pots was added, and then finding the first plant and substracting from the number of generations. Example:
+ *
+ *                  1         2         3
+ *        0         0         0         0
+ * 20: .#....##....#####...#######....#.#..##
+ *
+ * In the example above (from the official example in the puzzle description) you can see that there's 1 plant at location
+ * -2, which is the starting point for computing the score. To compute this, see example below for generation 20:
+ *
+ * ..................#....##....#####...#######....#.#..##..........
+ * ^^^^^^^^^^^^^^^^^^^^0
+ *
+ * Since each generation a dot '.' gets added to the plant row state (indicated by `^`), and currently we find
+ * 18 dots before the first plant, the left offset here is:
+ *
+ * offset = 20 - 18 = 2
+ *
+ * So the first plant is at location: -2
+ *
+ * PART 2:
+ *
+ * The idea here is that since the amount of generations is way too large to compute by brute force, we'll have to be
+ * smart about our solution. I found that after a certain amount of generations the increase in score becomes a
+ * linear function in the form of: y = ax + b. See below in the code how I solved that. Your input will probably lead
+ * to different values, but the idea on how to solve should be similar.
+ *
+ *
+ */
 
 object day12 extends App:
 
@@ -86,7 +121,7 @@ object day12 extends App:
         nextGeneration.simulatePlants(lookSize,  maxGen)
 
 
-  private val finalGeneration: Generation = input.simulatePlants(lookSize = 2, maxGen = 20)
+  private val finalGeneration: Generation = input.simulatePlants(lookSize = 2, maxGen = 21)
   private val answer1 = finalGeneration.computeScore
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 

@@ -1,4 +1,17 @@
+import scala.annotation.tailrec
 import scala.io.*
+
+/**
+ * PART 1:
+ *
+ * To solve, parse the input to a list of integers and then sum the list.
+ *
+ * PART 2:
+ *
+ * To solve, keep a state while recursively summing the frequencies. The code uses a Set to determine if the
+ * state has already been seen before. If so, it returns that state and that is the answer for part 2.
+ *
+ */
 
 object day01 extends App:
 
@@ -21,17 +34,21 @@ object day01 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  def firstTwiceFast(is: List[Int]): Int =
-    def go(iss: List[Int], acc: Set[Int], z: Int): Int = iss match
+  /**
+   * Loops over input and finds the first state that's encountered twice.
+   */
+  def firstTwice(is: List[Int]): Int =
+    @tailrec
+    def go(iss: List[Int], seen: Set[Int], z: Int): Int = iss match
       case h :: t =>
-        val state = z + h
-        if acc.contains(state) then state
+        val state: Int = z + h               // keep track of the state
+        if seen.contains(state) then state   // exit condition
         else
-          go(t, acc ++ Set(state), state)
-      case Nil => go(is, acc, z)
+          go(t, seen + state, state)         // continue, add state to set
+      case Nil => go(is, seen, z)            // input is exhausted, start again with new state
 
     go(is, Set.empty[Int], 0)
 
-  val answer2 = firstTwiceFast(input)
+  val answer2 = firstTwice(input)
 
-  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]") // 83173
+  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
