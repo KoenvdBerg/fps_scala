@@ -79,6 +79,60 @@ object Algorithms:
     else if exit(queue.head) then queue
     else bfsPriority(f(queue.head) ++ queue.tail)(f, exit)
 
+
+  object Dijkstra:
+
+    import scala.collection.mutable.PriorityQueue
+
+    // adapted from: https://ummels.de/2015/01/18/dijkstra-in-scala/
+
+    type Graph[N] = N => Map[N, Int]
+
+    def dijkstra[N](g: Graph[N])(source: N): (Map[N, Int], Map[N, N]) =
+
+      // unfortunately there isn't an immutable priority queue, so we've to use the mutable one.
+      val active: mutable.SortedSet[(N, Int)] = mutable.SortedSet((source, 0))(Ordering.by((f: (N, Int)) => f._2).reverse)
+
+      def go(res: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
+        if active.isEmpty then (res, pred)
+        else
+          val node: N = active.dequeue._1  // select the next node with lowest distance thus far
+          val cost: Int = res(node)
+          val neighbours: Map[N, Int] = for {
+            (n, c) <- g(node) if cost + c < res.getOrElse(n, Int.MaxValue)
+          } yield n -> (cost + c)          // update distances
+          neighbours.foreach((n: (N, Int)) => active.enqueue(n))  // add next nodes to active nodes
+          val preds: Map[N, N] = neighbours.map((f: (N, Int)) => (f._1, node))
+          go(res ++ neighbours, pred ++ preds)
+
+      go(Map(source -> 0), Map.empty[N, N])
+
+    def shortestPath[N](g: Graph[N])(source: N, target: N): Option[List[N]] =
+      val pred: Map[N, N] = dijkstra(g)(source)._2
+      if pred.contains(target) || source == target then
+        Some(iterateRight(target)(pred.get))
+      else None
+
+    def shortestDistance[N](g: Graph[N])(source: N, target: N): Option[Int] =
+      val pred: Map[N, Int] = dijkstra(g)(source)._1
+      if pred.contains(target) then pred.get(target)
+      else if source == target then Some(0)
+      else None
+
+    def iterateRight[N](x: N)(f: N => Option[N]): List[N] =
+
+      def go(xx: N, acc: List[N]): List[N] = f(xx) match
+        case None    => xx :: acc
+        case Some(v) => go(v, xx :: acc)
+
+      go(x, List.empty[N])
+
+    def tree(depth: Int): Graph[List[Boolean]] =
+      case x if x.length < depth =>
+        Map((true :: x) -> 1, (false :: x) -> 2)
+      case x if x.length == depth => Map(Nil -> 1)
+      case _ => Map.empty
+
 object VectorUtils:
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
     def go(ass: Vector[A], acc: Vector[A] = Vector.empty, n: Int = 0): Vector[A] =

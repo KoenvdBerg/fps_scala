@@ -6,6 +6,13 @@ import scala.collection.mutable
  *
  * PART 1:
  *
+ * To solve this I implemented the requirements. The difficult part is to get the coordinates right that are not at
+ * x=0 or y=0. The first impulse might be to simply implement a recursive solution for these coordinates, but that
+ * leads to a big slowdown performance wise. Memoization might be an option, but I opted for a quick algorithm,
+ * building the cave up in layers of x slices. First the layer at y=0, then the next at y=1, using the previous layer.
+ *
+ * This leads to an implementation that solves part 01 in 8ms.
+ *
  * PART 2:
  *
  *
@@ -34,6 +41,10 @@ object day22 extends App:
 
   def erosionMap(maxX: Int, maxY: Int): Vector[Vector[Int]] =
 
+    /**
+     * This function is essentially a State monad, with the state being the index of the previous layer
+     * and the previous erosion.
+     */
     def getSliceAtY(above: Vector[Int], acc: Vector[Int], x: Int = 1): Vector[Int] =
       if x > maxX then
         acc.reverse
@@ -63,16 +74,7 @@ object day22 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
+  // https://www.literateprograms.org/dijkstra_s_shortest_path_algorithm__scala_.html
+
   private val answer2 = None
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
-
-//  def erosion(p: Point, t: Point, depth: Int): Long =
-//
-//    def loop(pp: Point): Long = pp match
-//      case Point(t.x, t.y) => 0L
-//      case Point(x, 0) => (x * 16807L + depth) % 20183
-//      case Point(0, y) => (y * 48271L + depth) % 20183
-//      case Point(x, y) => (erosion(Point(x - 1, y), t, depth) * erosion(Point(x, y - 1), t, depth) + depth) % 20183
-//
-//    memoize(loop).apply(p)
