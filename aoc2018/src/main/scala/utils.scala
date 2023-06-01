@@ -63,6 +63,47 @@ object Grid2D:
       go(obstacles.sortBy(_._1.toTuple.swap).distinct)
 
 
+object FlatGrid:
+
+  /**
+   * Takes the 4 neighbors non-diagonally from the target position i.e. left, right, above and below
+   */
+  def neighbours4(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
+    val left: Int = if i % rowSize != 0 then i - 1 else -1
+    val right: Int = if (i + 1) % rowSize != 0 then i + 1 else -1
+    val vertical: Vector[Int] = Vector(i - rowSize, i + rowSize)
+    (Vector(right, left) ++ vertical)
+      .filter((pos: Int) => pos >= 0 && pos < nTiles && pos != i)
+
+
+  def neighbours8(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
+    def sides(pos: Int): Vector[Int] =
+      val left: Int = if pos % rowSize != 0 then pos - 1 else -1
+      val right: Int = if (pos + 1) % rowSize != 0 then pos + 1 else -1
+      Vector(left, pos, right)
+
+    def get(pos: Int): Vector[Int] =
+      val vertical: Vector[Int] = Vector(pos - rowSize, pos, pos + rowSize)
+      vertical
+        .flatMap(sides)
+        .filter(i => i >= 0 && i < nTiles && i != pos)
+
+    get(i)
+
+  def pointToIndex(x: Int, y: Int, rowSize: Int): Int =
+    y * rowSize + x
+
+  def printFlatGrid[A](grid: Vector[A], width: Int)(f: A => Char): String =
+    def go(g: Vector[A], acc: String): String =
+      if g.isEmpty then acc
+      else
+        val (head, next): (Vector[A], Vector[A]) = g.splitAt(width)
+        val toPrint: String = head.map(f).mkString("") + "\n"
+        go(next, acc + toPrint)
+
+    go(grid, "")
+
+
 object Algorithms:
 
   // Breath first search algorithm, generalized with early exit condition
@@ -91,7 +132,7 @@ object Algorithms:
     def dijkstra[N](g: Graph[N])(source: N): (Map[N, Int], Map[N, N]) =
 
       // unfortunately there isn't an immutable priority queue, so we've to use the mutable one.
-      val active: mutable.SortedSet[(N, Int)] = mutable.SortedSet((source, 0))(Ordering.by((f: (N, Int)) => f._2).reverse)
+      val active: mutable.PriorityQueue[(N, Int)] = mutable.PriorityQueue((source, 0))(Ordering.by((f: (N, Int)) => f._2).reverse)
 
       def go(res: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
         if active.isEmpty then (res, pred)
@@ -128,10 +169,11 @@ object Algorithms:
       go(x, List.empty[N])
 
     def tree(depth: Int): Graph[List[Boolean]] =
-      case x if x.length < depth =>
-        Map((true :: x) -> 1, (false :: x) -> 2)
-      case x if x.length == depth => Map(Nil -> 1)
-      case _ => Map.empty
+      (x: List[Boolean]) => x match
+        case x if x.length < depth =>
+          Map((true :: x) -> 1, (false :: x) -> 2)
+        case x if x.length == depth => Map(Nil -> 1)
+        case _ => Map.empty
 
 object VectorUtils:
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
