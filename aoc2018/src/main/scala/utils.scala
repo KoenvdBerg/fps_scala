@@ -79,6 +79,20 @@ object Algorithms:
     else if exit(queue.head) then queue
     else bfsPriority(f(queue.head) ++ queue.tail)(f, exit)
 
+  def lineSearch[A](as: Vector[A], start: A, initStep: Int)(f: (A, Vector[A]) => Int): A =
+
+    @tailrec
+    def go(current: A, step: Int): A =
+      val curScore: Int = f(current, as)
+      val next: Vector[A] = ???  // neighbours to current
+      val scores: Vector[(A, Int)] = next.map((a: A) => (a, f(a, as)))
+      val cont: Vector[(A, Int)] = scores.filter(_._2 > curScore)
+      if cont.isEmpty && step == 1 then current
+      else if cont.isEmpty then go(current, step / 2)
+      else go(cont.maxBy(_._2)._1, step)
+
+    go(start, initStep)
+
 object VectorUtils:
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
     def go(ass: Vector[A], acc: Vector[A] = Vector.empty, n: Int = 0): Vector[A] =
