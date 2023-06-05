@@ -67,49 +67,50 @@ object day24 extends App:
       println(s"${g.initiative} ${g.side} attacked with $dmg (${g.atkType}) and killed $unitsKilled from ${opponent.initiative}")
       opponent.copy(units = opponent.units - unitsKilled)
 
-    def selectionPhase(side: Army, opponents: Army): Vector[(Group, Option[Group])] =
-      val groupInOrder: Vector[Group] = side  // sort based on effective power first, then initiative
-        .toVector
-        .map((g: Group) => (g, (effectivePwr(g), g.initiative)))
-        .sortBy(_._2).reverse
-        .map(_._1)
-
+    def selectionPhase(side: Army, opponents: Army): Map[Group, Group] =
       @tailrec
-      def go(orderedArmy: Vector[Group], opps: Army, acc: Vector[(Group, Option[Group])]): Vector[(Group, Option[Group])] = orderedArmy match
-        case h +: t if opps.nonEmpty =>
+      def go(orderedArmy: List[Group], opps: Army, acc: Map[Group, Group]): Map[Group, Group] = orderedArmy match
+        case h :: t if opps.nonEmpty =>
           val selection: Group = opps.maxBy((opponent: Group) => (determineDmg(h, opponent), effectivePwr(opponent), opponent.initiative))
-          if determineDmg(h, selection) > 0 then go(t, opps - selection, (h, Some(selection)) +: acc)
-          else go(t, opps, (h, None) +: acc)
-        case h +: t if opps.isEmpty =>  // in case that no opponents are left, remaining ally groups will fight None
-          go(t, opps, (h, None) +: acc)
-        case _ => acc
+          if determineDmg(h, selection) > 0 then go(t, opps - selection, acc + (h -> selection))
+          else go(t, opps, acc)
+        case _ +: t if opps.isEmpty  => go(t, opps, acc)  // in case that no opponents are left, remaining ally groups won't fight
+        case Nil                     => acc
 
-      go(groupInOrder, opponents, Vector.empty)
+      val groupInOrder: List[Group] = side // sort based on effective power first, then initiative
+        .toList
+        .sortBy((g: Group) => (-effectivePwr(g), -g.initiative))
+      go(groupInOrder, opponents, Map.empty)
 
 
-    def attackingPhase(selections: Vector[(Group, Option[Group])]): Army =
-      val orderedAttack: Vector[(Group, Option[Group])] = selections
-        .sortBy(_._1.initiative)
-        .reverse                  // group with highest initiative attacks first
+    def attackingPhase(selections: Map[Group, Group], all: Army): Army =
 
       @tailrec
-      def doAttack(s: Vector[(Group, Option[Group])], acc: Army = Set.empty[Group]): Army = s match
-        case h +: t => h match
-          case (g, Some(opp)) if g.units > 0 => // attack is possible because units is positive integer
-            val updatedOpp: Group = attack(g, opp)
-            val oppIndex: Int = t.indexWhere(_._1.initiative == updatedOpp.initiative)
-            if oppIndex <= -1 then
-              // update the opponent in the acc because the opponent itself had already attacked
-              doAttack(t, acc.filter(_.initiative != updatedOpp.initiative) + updatedOpp + g)
-            else
-               // here the opponent still will attack. It's updated so that if the opponent has les than 1 unit, it won't attack
-              doAttack(t.updated(oppIndex, (updatedOpp, t(oppIndex)._2)), acc + g)
-          case (g, _) if g.units <= 0 => doAttack(t, acc)
-          case (g, None)      => doAttack(t, acc + g)
-          case _              => sys.error("no attacker available")
-        case _ => acc
+      def doAttack(attackers: List[Group], opponents: Map[Group, Group], allGroups: Army): Army = attackers match
+        case h :: t =>
+          opponents.get(h) match
+            case None      => doAttack(t, opponents, allGroups)
+            case Some(opp) if h.units > 0 =>
+              val updatedOpp: Group = attack(h, opp)
+              if updatedOpp.units > 0 then
+                doAttack(
+                  t.map((g: Group) => if g == opp then updatedOpp else g),
+                  if opponents.contains(opp) then opponents - opp + (updatedOpp -> opponents(opp)) else opponents,
+                  allGroups - opp + updatedOpp
+                )
+              else  // opponent died
+                doAttack(
+                  t.filter((g: Group) => g != opp),
+                  opponents - opp,
+                  allGroups - opp
+                )
+        case Nil => allGroups
 
-      doAttack(orderedAttack).filter(_.units > 0)
+
+      val orderedAttack: List[Group] = selections
+        .keys.toList
+        .sortBy(-_.initiative) // group with highest initiative attacks first
+      doAttack(orderedAttack, selections, all)
 
     @tailrec
     def fight(imm: Army, inf: Army, n: Int = 0): Army =
@@ -119,15 +120,13 @@ object day24 extends App:
       else
         //imm.foreach(g => println(s"imm: ${g.units} remaining for ${g.initiative}"))
         //inf.foreach(g => println(s"inf: ${g.units} remaining for ${g.initiative}"))
-        val selImm: Vector[(Group, Option[Group])] = selectionPhase(imm, inf)
-        val sellInf: Vector[(Group, Option[Group])] = selectionPhase(inf, imm)
-        val fightResult: Army = attackingPhase(selImm ++ sellInf)
-
-        println(fightResult.filter(_.side == "imm").mkString("\n"))
-
+        val selImm: Map[Group, Group] = selectionPhase(imm, inf)
+        val sellInf: Map[Group, Group] = selectionPhase(inf, imm)
+        val fightResult: Army = attackingPhase(selImm ++ sellInf, imm ++ inf)
         fight(fightResult.filter(_.side == "imm"), fightResult.filter(_.side == "inf"), n + 1)
 
   // too low: 14722
+  // TODO: Still after 1 fight the groups have too little units left, compare with python script
 
   val res1: Army = Group.fight(imm, inf)
   private val answer1 = res1.map(_.units).sum
