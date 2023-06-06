@@ -28,6 +28,12 @@ object chapter07 {
         val bf = b(es)
         UnitFuture(f(af.get, bf.get))
 
+    def flatMap[A, B](pa: Par[A])(f: A => Par[B]): Par[B] =
+      (es: ExecutorService) =>
+        val a: A = pa(es).get
+        val b: B = f(a)(es).get
+        UnitFuture(b)
+
     def fork[A](a: => Par[A]): Par[A] =
       es => es.submit(new Callable[A] {
         override def call = a(es).get
