@@ -3,7 +3,12 @@ import math.*
 import scala.annotation.tailrec
 
 /**
+ * PART 01:
  *
+ * spent a really long time looking for a bug, as the answer was wrong each time. Turns out that the parsing of the
+ * input went slightly wrong. The weakness and the immunity can be swapped between the () of the group string.
+ *
+ * The remainder of the puzzle was simply following the puzzle specifications as in the description.
  *
  */
 
@@ -30,6 +35,7 @@ object day24 extends App:
 
     def parseDefence(s: String): (List[String], List[String]) = s match
       case s"(immune to $imms; weak to $weaks)"  => (processDef(imms), processDef(weaks))
+      case s"(weak to $weaks; immune to $imms)"  => (processDef(imms), processDef(weaks))
       case s"(weak to $weaks)" => (Nil, processDef(weaks))
       case s"(immune to $imms)" => (processDef(imms), Nil)
       case _ => (Nil, Nil)
@@ -64,23 +70,24 @@ object day24 extends App:
     def attack(g: Group, opponent: Group): Group =
       val dmg: Int = determineDmg(g, opponent)
       val unitsKilled: Int = dmg / opponent.hp
-      println(s"${g.initiative} ${g.side} attacked with $dmg (${g.atkType}) and killed $unitsKilled from ${opponent.initiative}")
       opponent.copy(units = opponent.units - unitsKilled)
 
-    def selectionPhase(side: Army, opponents: Army): Map[Group, Group] =
+    def selectionPhase(army: Army): Map[Group, Group] =
       @tailrec
-      def go(orderedArmy: List[Group], opps: Army, acc: Map[Group, Group]): Map[Group, Group] = orderedArmy match
-        case h :: t if opps.nonEmpty =>
-          val selection: Group = opps.maxBy((opponent: Group) => (determineDmg(h, opponent), effectivePwr(opponent), opponent.initiative))
-          if determineDmg(h, selection) > 0 then go(t, opps - selection, acc + (h -> selection))
-          else go(t, opps, acc)
-        case _ +: t if opps.isEmpty  => go(t, opps, acc)  // in case that no opponents are left, remaining ally groups won't fight
+      def go(orderedArmy: List[Group], allGroups: Army, acc: Map[Group, Group]): Map[Group, Group] = orderedArmy match
+        case h :: t =>
+          val opponents: Army = allGroups.filter(_.side != h.side)
+          if opponents.isEmpty then go(t, allGroups, acc) // in case that no opponents are left, remaining ally groups won't fight
+          else
+            val selection: Group = opponents.maxBy((opp: Group) => (determineDmg(h, opp), effectivePwr(opp), opp.initiative))
+            if determineDmg(h, selection) > 0 then go(t, allGroups - selection, acc + (h -> selection))
+            else go(t, allGroups, acc)
         case Nil                     => acc
 
-      val groupInOrder: List[Group] = side // sort based on effective power first, then initiative
+      val groupInOrder: List[Group] = army // sort based on effective power first, then initiative
         .toList
         .sortBy((g: Group) => (-effectivePwr(g), -g.initiative))
-      go(groupInOrder, opponents, Map.empty)
+      go(groupInOrder, army, Map.empty[Group, Group])
 
 
     def attackingPhase(selections: Map[Group, Group], all: Army): Army =
@@ -104,6 +111,7 @@ object day24 extends App:
                   opponents - opp,
                   allGroups - opp
                 )
+            case _ => sys.error("CANNOT PROCESS ATTACK")
         case Nil => allGroups
 
 
@@ -113,22 +121,16 @@ object day24 extends App:
       doAttack(orderedAttack, selections, all)
 
     @tailrec
-    def fight(imm: Army, inf: Army, n: Int = 0): Army =
-      if imm.isEmpty then inf
-      else if n >= 1 then imm
-      else if inf.isEmpty then imm
+    def fight(army: Army, n: Int = 0): Army =
+      if !army.exists(_.side == "inf") then army
+      else if !army.exists(_.side == "imm") then army
+      else if n >= 20000 then army
       else
-        //imm.foreach(g => println(s"imm: ${g.units} remaining for ${g.initiative}"))
-        //inf.foreach(g => println(s"inf: ${g.units} remaining for ${g.initiative}"))
-        val selImm: Map[Group, Group] = selectionPhase(imm, inf)
-        val sellInf: Map[Group, Group] = selectionPhase(inf, imm)
-        val fightResult: Army = attackingPhase(selImm ++ sellInf, imm ++ inf)
-        fight(fightResult.filter(_.side == "imm"), fightResult.filter(_.side == "inf"), n + 1)
+        val selections: Map[Group, Group] = selectionPhase(army)
+        val fightResult: Army = attackingPhase(selections, army)
+        fight(fightResult, n + 1)
 
-  // too low: 14722
-  // TODO: Still after 1 fight the groups have too little units left, compare with python script
-
-  val res1: Army = Group.fight(imm, inf)
+  val res1: Army = Group.fight(imm ++ inf)
   private val answer1 = res1.map(_.units).sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
