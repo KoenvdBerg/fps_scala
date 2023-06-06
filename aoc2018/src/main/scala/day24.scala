@@ -5,11 +5,15 @@ import scala.annotation.tailrec
 /**
  * PART 01:
  *
- * spent a really long time looking for a bug, as the answer was wrong each time. Turns out that the parsing of the
+ * I spent a really long time looking for a bug, as the answer was wrong each time. Turns out that the parsing of the
  * input went slightly wrong. The weakness and the immunity can be swapped between the () of the group string.
  *
  * The remainder of the puzzle was simply following the puzzle specifications as in the description.
  *
+ * PART 02:
+ *
+ * This was a straightforward search for encountering the lowest boost for the immune army to win. Due to having optimised
+ * code for part 01, this was a simple implementation of a brute force method (see code below).
  */
 
 
@@ -121,22 +125,34 @@ object day24 extends App:
       doAttack(orderedAttack, selections, all)
 
     @tailrec
-    def fight(army: Army, n: Int = 0): Army =
-      if !army.exists(_.side == "inf") then army
-      else if !army.exists(_.side == "imm") then army
-      else if n >= 20000 then army
+    def fight(army: Army, n: Int = 0): (String, Army) =
+      if !army.exists(_.side == "inf") then ("imm won", army)
+      else if !army.exists(_.side == "imm") then ("inf won", army)
+      else if n >= 20000 then ("stalemate", Set.empty[Group])
       else
         val selections: Map[Group, Group] = selectionPhase(army)
         val fightResult: Army = attackingPhase(selections, army)
         fight(fightResult, n + 1)
 
-  val res1: Army = Group.fight(imm ++ inf)
-  private val answer1 = res1.map(_.units).sum
+  val (_, res1): (String, Army) = Group.fight(imm ++ inf)
+  private val answer1: Int = res1.map(_.units).sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
     System.currentTimeMillis
 
-  private val answer2 = None
+  @tailrec
+  def searchWinForImm(boost: Int): Army =
+    val boostedImm: Army = imm.map((g: Group) => g.copy(atk = g.atk + boost))
+    val (outcome, winner): (String, Army) = Group.fight(boostedImm ++ inf)
+    outcome match
+      case "imm won"   => winner
+      case "inf won"   => searchWinForImm(boost + 1)
+      case "stalemate" => searchWinForImm(boost + 1)
+      case _           => sys.error("Couldn't find a win for Imm")
+
+
+  val res2: Army = searchWinForImm(30)
+  val answer2: Int = res2.map(_.units).sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
