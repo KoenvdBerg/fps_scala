@@ -63,6 +63,47 @@ object Grid2D:
       go(obstacles.sortBy(_._1.toTuple.swap).distinct)
 
 
+object FlatGrid:
+
+  /**
+   * Takes the 4 neighbors non-diagonally from the target position i.e. left, right, above and below
+   */
+  def neighbours4(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
+    val left: Int = if i % rowSize != 0 then i - 1 else -1
+    val right: Int = if (i + 1) % rowSize != 0 then i + 1 else -1
+    val vertical: Vector[Int] = Vector(i - rowSize, i + rowSize)
+    (Vector(right, left) ++ vertical)
+      .filter((pos: Int) => pos >= 0 && pos < nTiles && pos != i)
+
+
+  def neighbours8(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
+    def sides(pos: Int): Vector[Int] =
+      val left: Int = if pos % rowSize != 0 then pos - 1 else -1
+      val right: Int = if (pos + 1) % rowSize != 0 then pos + 1 else -1
+      Vector(left, pos, right)
+
+    def get(pos: Int): Vector[Int] =
+      val vertical: Vector[Int] = Vector(pos - rowSize, pos, pos + rowSize)
+      vertical
+        .flatMap(sides)
+        .filter(i => i >= 0 && i < nTiles && i != pos)
+
+    get(i)
+
+  def pointToIndex(x: Int, y: Int, rowSize: Int): Int =
+    y * rowSize + x
+
+  def printFlatGrid[A](grid: Vector[A], width: Int)(f: A => Char): String =
+    def go(g: Vector[A], acc: String): String =
+      if g.isEmpty then acc
+      else
+        val (head, next): (Vector[A], Vector[A]) = g.splitAt(width)
+        val toPrint: String = head.map(f).mkString("") + "\n"
+        go(next, acc + toPrint)
+
+    go(grid, "")
+
+
 object Algorithms:
 
   // Breath first search algorithm, generalized with early exit condition
@@ -79,6 +120,7 @@ object Algorithms:
     else if exit(queue.head) then queue
     else bfsPriority(f(queue.head) ++ queue.tail)(f, exit)
 
+
   def lineSearch[A](as: Vector[A], start: A, initStep: Int)(f: (A, Vector[A]) => Int): A =
 
     @tailrec
@@ -92,6 +134,62 @@ object Algorithms:
       else go(cont.maxBy(_._2)._1, step)
 
     go(start, initStep)
+
+
+  object Dijkstra:
+
+    import scala.collection.mutable.PriorityQueue
+
+    // adapted from: https://ummels.de/2015/01/18/dijkstra-in-scala/
+
+    type Graph[N] = N => Map[N, Int]
+
+    def dijkstra[N](g: Graph[N])(source: N): (Map[N, Int], Map[N, N]) =
+
+      // unfortunately there isn't an immutable priority queue, so we've to use the mutable one.
+      val active: mutable.PriorityQueue[(N, Int)] = mutable.PriorityQueue((source, 0))(Ordering.by((f: (N, Int)) => f._2).reverse)
+
+      def go(res: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
+        if active.isEmpty then (res, pred)
+        else
+          val node: N = active.dequeue._1  // select the next node with lowest distance thus far
+          val cost: Int = res(node)
+          val neighbours: Map[N, Int] = for {
+            (n, c) <- g(node) if cost + c < res.getOrElse(n, Int.MaxValue)
+          } yield n -> (cost + c)          // update distances
+          neighbours.foreach((n: (N, Int)) => active.enqueue(n))  // add next nodes to active nodes
+          val preds: Map[N, N] = neighbours.map((f: (N, Int)) => (f._1, node))
+          go(res ++ neighbours, pred ++ preds)
+
+      go(Map(source -> 0), Map.empty[N, N])
+
+    def shortestPath[N](g: Graph[N])(source: N, target: N): Option[List[N]] =
+      val pred: Map[N, N] = dijkstra(g)(source)._2
+      if pred.contains(target) || source == target then
+        Some(iterateRight(target)(pred.get))
+      else None
+
+    def shortestDistance[N](g: Graph[N])(source: N, target: N): Option[Int] =
+      val pred: Map[N, Int] = dijkstra(g)(source)._1
+      if pred.contains(target) then pred.get(target)
+      else if source == target then Some(0)
+      else None
+
+    def iterateRight[N](x: N)(f: N => Option[N]): List[N] =
+
+      def go(xx: N, acc: List[N]): List[N] = f(xx) match
+        case None    => xx :: acc
+        case Some(v) => go(v, xx :: acc)
+
+      go(x, List.empty[N])
+
+    def tree(depth: Int): Graph[List[Boolean]] =
+      (x: List[Boolean]) => x match
+        case x if x.length < depth =>
+          Map((true :: x) -> 1, (false :: x) -> 2)
+        case x if x.length == depth => Map(Nil -> 1)
+        case _ => Map.empty
+
 
 object VectorUtils:
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =

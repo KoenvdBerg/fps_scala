@@ -1,0 +1,32 @@
+#ip 4
+seti 123 0 3        // in.updated(3, 123)
+bani 3 456 3        // in.updated(3, in(3) & 456)
+eqri 3 72 3         // in.updated(3, if in(3) == 72 then 1 else 0)
+addr 3 4 4          // GOTO 5
+seti 0 0 4          // GOTO 0
+seti 0 4 3          // in.updated(3, 0)
+bori 3 65536 2      // in.updated(2, in(3) | 65536)
+seti 1099159 8 3    // in.updated(3, 1099159)
+bani 2 255 1        // in.updated(1, in(2) & 255)
+addr 3 1 3          // in.updated(3, in(3) + in(1))
+bani 3 16777215 3   // in.updated(3, in(3) & 16777215)
+muli 3 65899 3      // in.updated(3, in(3) * 65899)
+bani 3 16777215 3   // in.updated(3, in(3) & 16777215)
+gtir 256 2 1        // in.updated(1, if 256 > in(2) then 1 else 0)
+addr 1 4 4          // in.updated(4, in(1) + in(4)) ==> GOTO 15 OR 16
+addi 4 1 4          // in.updated(4, in(4) + 1)     ==> GOTO 17
+seti 27 6 4         // GOTO 28
+seti 0 8 1          // in.updated(1, 0)
+addi 1 1 5          // in.updated(5, in(1) + 1)
+muli 5 256 5        // in.updated(5, in(5) * 256)
+gtrr 5 2 5          // in.updated(5, if in(5) > in(2) then 1 else 0)
+addr 5 4 4          // in.updated(4, in(5) + in(4)  ==> GOTO 22 OR 23
+addi 4 1 4          // in.updated(4, in(4) + 1)     ==> GOTO 24
+seti 25 5 4         // GOTO 26
+addi 1 1 1          // in.updated(1, in(1) + 1)
+seti 17 1 4         // GOTO 18
+setr 1 2 2          // in.updated(2, in(1)
+seti 7 0 4          // GOTO 8
+eqrr 3 0 1          // in.updated(1, if in(3) == in(0) then 1 else 0) !! WORKS WITH REGISTER 0 !!
+addr 1 4 4          // in.updated(4, in(1) + in(4) ==> GOTO 30 OR 31  !! CRASH HERE !!
+seti 5 0 4          // GOTO 6
