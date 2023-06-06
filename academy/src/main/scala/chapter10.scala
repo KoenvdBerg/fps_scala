@@ -130,6 +130,32 @@ object chapter10:
         override def zero: (A, B) = (a.zero, b.zero)
         override def op(a1: (A, B), a2: (A, B)): (A, B) = (a.op(a1._1, a2._1), b.op(a1._2, a2._2))
 
+    def mapMergeMonoid[K, V](V: Monoid[V]): Monoid[Map[K, V]] =
+      new Monoid[Map[K, V]]:
+        override def zero: Map[K, V] = Map.empty[K, V]
+
+        override def op(a1: Map[K, V], a2: Map[K, V]): Map[K, V] =
+          (a1.keySet ++ a2.keySet).foldLeft(zero)((acc, k) =>
+            acc.updated(k, V.op(a1.getOrElse(k, V.zero), a2.getOrElse(k, V.zero)))
+          )
+    val M: Monoid[Map[String, Map[String, Int]]] = mapMergeMonoid(mapMergeMonoid(intAddition))
+
+    // 10.17
+    def functionMonoid[A, B](B: Monoid[B]): Monoid[A => B] =
+      new Monoid[A => B]:
+        override def zero: A => B = (a: A) => B.zero
+        override def op(a1: A => B, a2: A => B): A => B = (a: A) => B.op(a1(a), a2(a))
+
+    // 10.18
+    def bag[A](as: IndexedSeq[A]): Map[A, Int] =
+      val bagMonoid: Monoid[Map[A, Int]] = mapMergeMonoid(intAddition)
+      as
+        .map((a: A) => Map(a -> 1))
+        .foldLeft(bagMonoid.zero)(bagMonoid.op)
+
+    def bagFold[A](as: IndexedSeq[A]): Map[A, Int] =
+      val bagMonoid: Monoid[Map[A, Int]] = mapMergeMonoid(intAddition)
+      foldMapV(as, bagMonoid)((a: A) => Map(a -> 1))
 
   trait Foldable[F[_]]:
     def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B = ???
@@ -263,6 +289,20 @@ object chapter10:
 
   Prop.run(monoidLawsZero(combi, y.map((i: Int) => (s"$i", i))))
   Prop.run(monoidLawsOp(combi, y.map((i: Int) => (s"$i", i))))
+
+  // testing the mapmergemonoid
+  val m1 = Map("o1" -> Map("i1" -> 1, "i2" -> 2))
+  val m2 = Map("o1" -> Map("i2" -> 3))
+  println(chapter10.Monoid.M.op(m1, m2))
+
+  // testing bag
+  println("\n##### TESTING BAG #####")
+  val x123 = Vector(1,2,3,5,6,3,1,2,3,4,7)
+  val y123 = Vector("a", "rose", "is", "a", "rose")
+  println(chapter10.Monoid.bag(x123))
+  println(chapter10.Monoid.bag(y123))
+  println(chapter10.Monoid.bagFold(y123))
+
 
 
 
