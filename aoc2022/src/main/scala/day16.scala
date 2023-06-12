@@ -1,0 +1,1 @@
+// the yet index and the rock index should be sufficient to find a cycle in a cache. 
