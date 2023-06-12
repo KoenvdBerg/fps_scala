@@ -25,7 +25,7 @@ object day08 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input =
+  private val input: Vector[TreeRow] =
     Source
       .fromResource(s"day$day.txt")
       .getLines
@@ -59,15 +59,15 @@ object day08 extends App:
     System.currentTimeMillis
 
   def scenicScore(i: Int, j: Int, trees: TreeRow, treesTransposed: TreeRow): Int =
+
+    def scoreSide(side: TreeRow, height: Int): Int =
+      if side.isEmpty then 0 else  // at border of map
+        val sideView: TreeRow = side.takeWhile(_ < height)
+        if sideView.length == side.length then sideView.length else sideView.length + 1  // the +1 accounts for the blocking tree 
+    
     def score(index: Int, row: TreeRow): Int =
       val (left, right): (TreeRow, TreeRow) = row.splitAt(index)
-      val leftScore: Int = if left.isEmpty then 0 else 
-        val leftView: TreeRow = left.reverse.takeWhile(_ < row(index))
-        if leftView.length == left.length then leftView.length else leftView.length + 1
-      val rightScore: Int = if right.drop(1).isEmpty then 0 else 
-        val rightView: TreeRow = right.drop(1).takeWhile(_ < row(index))
-        if rightView.length == right.drop(1).length then rightView.length else rightView.length + 1
-      leftScore * rightScore
+      scoreSide(left.reverse, row(index)) * scoreSide(right.drop(1), row(index))
       
     score(i, trees) * score(j, treesTransposed)
 
