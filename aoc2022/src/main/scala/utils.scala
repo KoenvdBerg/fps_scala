@@ -109,11 +109,11 @@ object FlatGrid:
   def pointToIndex(x: Int, y: Int, rowSize: Int): Int =
     y * rowSize + x
 
-  def printFlatGrid[A](grid: Vector[A], width: Int)(f: A => Char): String =
-    def go(g: Vector[A], acc: String): String =
+  def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
+    def go(g: IndexedSeq[A], acc: String): String =
       if g.isEmpty then acc
       else
-        val (head, next): (Vector[A], Vector[A]) = g.splitAt(width)
+        val (head, next): (IndexedSeq[A], IndexedSeq[A]) = g.splitAt(width)
         val toPrint: String = head.map(f).mkString("") + "\n"
         go(next, acc + toPrint)
 
