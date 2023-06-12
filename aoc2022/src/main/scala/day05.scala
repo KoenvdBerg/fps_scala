@@ -6,23 +6,24 @@ import scala.annotation.tailrec
  * PART 01:
  *
  * The tricky part of this day was to correctly parse in the input file. Especially the stacks are hard to parse. I 
- * ended up replacing the spaces between containers with empty containers, like this "[]". Then the string was easy
- * to parse. To link each container stack to its correct ID, I transposed the List of containers, like so: 
+ * ended up using the .grouped(4) method on strings, which groupes the strings each 4 characters. Then I transposed 
+ * that like this: 
  * 
- * List(List(, D, ), List(N, C, ), List(Z, M, P), List(1, 2, 3))
+ * Vector(List("", [D], ""), Vector([N], [C], ""), Vector([Z], [M], [P]), List(1, 2, 3))
  * 
  * to:
  * 
- * List(List(, N, Z, 1), List(D, C, M, 2), List(, , P, 3)) 
+ * Vector(Vector("", [N], [Z], 1), Vector([D], [C], [M], 2), Vector("", "", [P], 3)) 
  * 
- * Then I converted it in a map like this: Map(1 -> List(N, Z), 2 -> List(D, C, M), 3 -> List(P))
+ * Then I converted it in a Stacks like this: Vector(Vector([N], [Z]), Vector([D], [C], [M]), Vector([P]))
+ * The indexation of the vector determines the positions of each stack.
  * 
  * After parsing the input stack, it was trivial to create the logic of changing a stack state to the next stated 
  * based on a move. Result is obtained by foldLeft on every move with the stack as fold result. 
  *
  * PART 02:
  *
- * Changed the exectuteMove function to also work with the non-reversed order for part02. 
+ * Changed the exectuteMove function to also work with the non-reversed order for part02, moving everything at once. 
  *
  */
 
@@ -36,48 +37,46 @@ object day05 extends App:
     System.currentTimeMillis
 
   case class Move(qty: Int, src: Int, tgt: Int)
+  type Stacks = Vector[Vector[String]]
   
-  private val (stack, moves): (Map[Int, List[Char]], List[Move]) =
-
-    def parseStacks(s: String): List[String] =
-      if s.contains('[') then
-        val stackRow: String = s.replace("    ", " []")
-        stackRow.split(" ").map(_.replace("[", "").replace("]", "")).toList
-      else s.split(" ").filterNot(_ == "").toList
+  private val (stack, moves): (Stacks, Vector[Move]) =
+    
+    def parseStacks(s: String): Vector[String] =
+      s.grouped(4).map(_.trim).toVector
 
     def parseMoves(s: String): Option[Move] = s match
-      case s"move $qty from $src to $tgt" => Some(Move(qty.toInt, src.toInt, tgt.toInt))
+      case s"move $qty from $src to $tgt" => Some(Move(qty.toInt, src.toInt - 1, tgt.toInt - 1))
       case _ => None
 
-    val infile: List[String] = Source
+    val infile: Vector[String] = Source
       .fromResource(s"day$day.txt")
       .getLines
-      .toList
+      .toVector
     
-    val stacks: Map[Int, List[Char]] = infile
+    val stacks: Stacks = infile
       .takeWhile(_ != "")   // take the stack lines i.e. up until the first move line
-      .map(parseStacks)     // convert to a list of containers in stack, including empty filler containers
+      .map(parseStacks)     // convert to a Vector of containers in stack
       .transpose
-      .map((s: List[String]) => (s.takeRight(1).head.toInt, s.dropRight(1).filter(_ != "").map(_.head)))
-      .toMap
-
+      .sortBy((s: Vector[String]) => s.last.toInt)
+      .map((s: Vector[String]) => s.dropRight(1).filter(_ != ""))
+    
     (stacks, infile.flatMap(parseMoves))
 
-  def exectuteMove(order: String)(stacks: Map[Int, List[Char]], m: Move): Map[Int, List[Char]] =
-    if order == "part01" then 
-      stacks
-        .updated(m.src, stacks(m.src).drop(m.qty))                           // remove from source stack
-        .updated(m.tgt, stacks(m.src).take(m.qty).reverse ++ stacks(m.tgt))  // append to head of target stack in reverse order
-    else
-      stacks
-        .updated(m.src, stacks(m.src).drop(m.qty))                  // remove from source stack
-        .updated(m.tgt, stacks(m.src).take(m.qty) ++ stacks(m.tgt)) // append to head of target stack
+  def exectuteMove(atOnce: Boolean)(stacks: Stacks, m: Move): Stacks =
+    val (toMove, remainder): (Vector[String], Vector[String]) = stacks(m.src).splitAt(m.qty)
+    val toUpdate: Vector[String] = if atOnce then toMove else toMove.reverse
+    stacks
+      .updated(m.src, remainder) // remove from source stack
+      .updated(m.tgt, toUpdate ++ stacks(m.tgt)) // append to head of target stack
   
-  def topContainerString(stacks: Map[Int, List[Char]]): String =
-    stacks.toVector.sortBy(_._1).map(_._2.head).mkString("")  // always sort first on stack id
+  def topContainerString(stacks: Stacks): String =
+    stacks
+      .map(_.head)  // take top container from each stack
+      .mkString("")
+      .replace("[", "")  // remove the square brackets
+      .replace("]", "")  
 
-  
-  private val res1: Map[Int, List[Char]] = moves.foldLeft(stack)(exectuteMove("part01"))
+  private val res1: Stacks = moves.foldLeft(stack)(exectuteMove(false))
   private val answer1: String = topContainerString(res1)
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
@@ -85,6 +84,6 @@ object day05 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  private val res2: Map[Int, List[Char]] = moves.foldLeft(stack)(exectuteMove("part02"))
+  private val res2: Stacks = moves.foldLeft(stack)(exectuteMove(true))
   private val answer2: String = topContainerString(res2)
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
