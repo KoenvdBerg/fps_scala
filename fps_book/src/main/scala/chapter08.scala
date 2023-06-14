@@ -1,5 +1,7 @@
 import chapter06.SimpleRNG
 import testing.Prop.{FailedCase, SuccessCount, TestCases}
+import chapter06_state.State.*
+import chapter06_state.State
 
 import java.util.concurrent.{ExecutorService, Executors}
 
@@ -27,7 +29,6 @@ object PlayingWithScalaCheck extends App:
 
 object testing:
   import chapter06.RNG
-  import State.*
 
   type MaxSize = Int
   case class Prop(run: (MaxSize, TestCases, RNG) => Result):
@@ -199,7 +200,6 @@ object testing:
   println("KLFJD")
 
   import testing.*
-  import State.*
 
   val rng = SimpleRNG(42)
   val x = Gen(State(rng.unit(1)))

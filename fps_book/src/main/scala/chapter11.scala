@@ -1,6 +1,7 @@
 import testing.Gen
 import chapter07.Par
 import Combinator.{Parser, P}
+import chapter06_state.State
 
 object chapter11:
 

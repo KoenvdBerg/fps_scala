@@ -1,6 +1,7 @@
 import chapter11.Functor
 import chapter11.Monad
 import chapter11.Monad.{Id, idMonad}
+import chapter06_state.State
 
 object chapter12: 
   trait Applicative[F[_]] extends Functor[F]: 
@@ -17,7 +18,7 @@ object chapter12:
       as.foldRight(unit(Map.empty[K, V]))((kv: (K, F[V]), fkv: F[Map[K, V]]) => map2(kv._2, fkv)((a: V, b: Map[K, V]) => b + (kv._1 -> a)))
       
     // 12.1
-    def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] = map2(ma, mb)((_, _))
+    def **[A, B](ma: F[A], mb: F[B]): F[(A, B)] = map2(ma, mb)((_, _))
     def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
       sequence(List.fill(n)(ma))
       
@@ -58,6 +59,10 @@ object chapter12:
     val idApplicative: Applicative[Id] = new Applicative[Id]:
       override def unit[A](a: => A): Id[A] = idMonad.unit(a)
       override def map2[A, B, C](fa: Id[A], fb: Id[B])(f: (A, B) => C): Id[C] = idMonad.map2(fa, fb)(f) 
+      
+    def stateApplicative[S] = new Applicative[[x] =>> State[S, x]]:
+      override def map2[A, B, C](fa: State[S, A], fb: State[S, B])(f: (A, B) => C): State[S, C] = fa.map2(fb)(f)
+      override def unit[A](a: => A): State[S, A] = State.unit(a)
 
   // 12.5
   enum Either[+E, +A]:
@@ -87,11 +92,67 @@ object chapter12:
         
         
   trait Traverse[F[_]]: 
+    val self = this
     def traverse[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] = ???
     def sequence[G[_]: Applicative, A](fga: F[G[A]]): G[F[A]] = traverse(fga)(identity)
     def map[A, B](fa: F[A])(f: A => B)(using g: Applicative[Id]): F[B] = traverse(fa)((a: A) => g.unit(f(a))).value
+    def traverseS[S, A, B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
+      traverse(fa)(f)(Applicative.stateApplicative)
+      
+    def mapAccum[S, A, B](fa: F[A], s: S)(f: (A, S) => (B, S)): (F[B], S) =
+      traverseS(fa)((a: A) => for { 
+        s1 <- State.get[S]
+        (b, s2) = f(a, s1)
+        _ <- State.set(s2)
+      } yield b).run(s)
+      
+    def toList[A](fa: F[A]): List[A] =
+      mapAccum(fa, List.empty[A])((a: A, s: List[A]) => ((), a :: s))._2.reverse
+      
+    def zipWithIndex[A](fa: F[A]): F[(A, Int)] =
+      mapAccum(fa, 0)((a: A, s: Int) => ((a, s), s + 1))._1
+    
+    // 12.16
+    def reverse[A](fa: F[A]): F[A] =
+      mapAccum(fa, toList(fa).reverse)((_: A, s: List[A]) => (s.head, s.tail))._1
+  
+    // 12.17
+    def foldLeft[A, B](fa: F[A])(z: B)(f: (B, A) => B): B =
+      mapAccum(fa, z)((a: A, s: B) => ((), f(s, a)))._2
+      
+    def zip[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
+      mapAccum(fa, toList(fb)) {
+        case (_, Nil)    => sys.error("zip: Incompatible shapes. ")
+        case (a, b :: s) => ((a, b), s) 
+      }._1
+
+
+    def zipL[A, B](fa: F[A], fb: F[B]): F[(A, Option[B])] =
+      mapAccum(fa, toList(fb)) {
+        case (a, Nil) => ((a, None), Nil)
+        case (a, b :: s) => ((a, Some(b)), s)
+      }._1
+
+
+    def zipR[A, B](fa: F[A], fb: F[B]): F[(Option[A], B)] =
+      mapAccum(fb, toList(fa)) {
+        case (b, Nil) => ((None, b), Nil)
+        case (b, a :: s) => ((Some(a), b), s)
+      }._1
+
+    // 12.18
+    def fuse[G[_], H[_], A, B](fa: F[A])(f: A => G[B], g: A => H[B])(using G: Applicative[G], H: Applicative[H]): (G[F[B]], H[F[B]]) =
+      traverse[[x] =>> (G[x], H[x]), A, B](fa)((a: A) => (f(a), g(a)))(G.product(H))
+      
+    // 12.19
+    //def compose[G[_]](using G: Traverse[G]): Traverse[[x] =>> F[G[x]]] = new Traverse[[x] =>> F[G[x]]]:
+    // override def traverse[M[_] : Applicative, A, B](fa: F[G[A]])(f: A => M[B]): F[G[M[B]]] = 
+    //    self.traverse(fa)((ga: G[A]) => G.traverse(ga)(f))
+    
+    
     
   object Traverse: 
+    // 12.13
     val listTraverse: Traverse[List] = new Traverse[List]:
       override def traverse[G[_], A, B](fa: List[A])(f: A => G[B])(using g: Applicative[G]): G[List[B]] =
         fa.foldRight(g.unit(List.empty[B]))((a: A, fbs: G[List[B]]) => g.map2(f(a), fbs)(_ :: _))
@@ -106,8 +167,9 @@ object chapter12:
       override def traverse[G[_], A, B](fa: Tree[A])(f: A => G[B])(using g: Applicative[G]): G[Tree[B]] =
         g.map2(f(fa.head), listTraverse.traverse(fa.tail)((a: Tree[A]) => traverse(a)(f)))((b: B, bt: List[Tree[B]]) => Tree(b, bt))
 
+
       
-@main def run_chapter_12: Unit =
+@main def run_chapter12: Unit =
 
   import chapter12.Applicative.streamApplicative.*
   val a: LazyList[Option[String]] = unit(Some("KOEN"))
