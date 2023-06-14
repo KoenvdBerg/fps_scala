@@ -9,6 +9,7 @@ lazy val root = (project in file("."))
 
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.17.0"
+libraryDependencies += "com.lihaoyi" %% "pprint" % "0.8.1"
 
 ThisBuild / scalacOptions ++= Seq(
   "-unchecked",
