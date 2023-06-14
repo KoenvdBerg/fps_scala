@@ -157,7 +157,7 @@ object Combinator:
 
 
 @main def testP: Unit =
-  import State.*
+  import chapter06_state.State
   import testing.*
   import Combinator.{Parser, P}
   import Combinator.P.*
