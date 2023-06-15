@@ -5,7 +5,11 @@ import scala.annotation.tailrec
 /**
  * PART 01:
  *
+ * Working with sets it's easy to find the overlapping character
+ *
  * PART 02:
+ *
+ * Again working with sets, see implementation
  *
  */
 
@@ -25,10 +29,8 @@ object day03 extends App:
       .toList
 
   def charToValue(c: Char): Int =
-    if c.isUpper then
-      Char.char2int(c.toLower) - (96 - 26)
-    else
-      Char.char2int(c) - 96
+    if c.isUpper then c.toLower.toInt - (96 - 26)
+    else c.toInt - 96
 
 
   def findChar(s: String): Char =
@@ -46,5 +48,16 @@ object day03 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  val answer2 = None
+  def findChar3(ss: List[String], acc: Set[Char] = Set.empty[Char]): Char = ss match
+    case Nil    => if acc.size > 1 then sys.error("BOOM") else acc.head
+    case h :: t =>
+      if acc.isEmpty then findChar3(t, acc ++ h)
+      else findChar3(t, h.toSet.intersect(acc))
+
+
+  val answer2: Int = input
+    .grouped(3)
+    .map((ls: List[String]) => findChar3(ls))
+    .map((c: Char) => charToValue(c))
+    .sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
