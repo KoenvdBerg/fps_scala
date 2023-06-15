@@ -87,6 +87,11 @@ object chapter11:
     // 11.13
     def flatMapJoin[A, B](fa: F[A])(f: A => F[B]): F[B] =
       join(map(fa)(f))
+      
+    def forever[A, B](a: F[A]): F[B] = {
+      lazy val t: F[B] = forever(a)
+      flatMap(a)(_ => t)
+    }
 
 
   object Monad:
