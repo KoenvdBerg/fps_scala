@@ -37,7 +37,7 @@ object day07 extends App:
   type Paths = List[String]
   
   def walkDir(state: (FileTree, Paths), in: String): (FileTree, Paths) = in match
-    case "$ cd .."     => (state._1, state._2.drop(1))  // move 1 dir back
+    case "$ cd .."     => (state._1, state._2.tail)  // move 1 dir back
     case s"$$ cd $dir" =>
       val path: String = if state._2.isEmpty then dir else state._2.head + dir  // check for when the root folder hasn't been added yet
       (state._1.updated(path, Nil), path :: state._2)   // move 1 dir deeper and init folder
@@ -47,7 +47,7 @@ object day07 extends App:
       val next: FileTree =
         state._2.foldLeft(state._1)((m: FileTree, key: String) => m.updated(key, (file, i.toInt) :: m(key)))
       (next, state._2)
-    case _ => sys.error("BOOM")
+    case _ => sys.error(s"could't parse incoming string $in")
 
 
   private val (res1, _): (FileTree, Paths) = input.foldLeft((Map.empty[String, List[(String, Int)]], Nil))(walkDir)
