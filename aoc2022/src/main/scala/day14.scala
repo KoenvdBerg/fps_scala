@@ -25,7 +25,7 @@ object day14 extends App:
   private val start1: Long =
     System.currentTimeMillis
   
-  private val rock: Vector[Point] =
+  private val rock: Set[Point] =
     
     def parseRock(s: String): Vector[Point] =
       val rockPoints: Vector[Point] = s.split(" -> ").toVector.map {
@@ -40,9 +40,8 @@ object day14 extends App:
     Source
       .fromResource(s"day$day.txt")
       .getLines
-      .toVector
       .flatMap(parseRock)
-      .distinct
+      .toSet
     
   enum Sand:
     case Left, Right, Down, Rest
@@ -55,47 +54,38 @@ object day14 extends App:
       case Down  => Point(p.x, p.y + 1)
       case _     => p
     
-    def checkDir(p: Point, obstacles: Vector[Point], dir: Sand): Boolean = !obstacles.contains(goDir(p, dir))
-      
+    def checkDir(p: Point, obstacles: Set[Point], dir: Sand): Boolean = 
+      !obstacles.contains(goDir(p, dir))
+
     @tailrec
-    def simSand(rock: Vector[Point], sand: Vector[Point], loc: Point)(toInf: Boolean): Vector[Point] =
+    def simSand(obstacles: Set[Point], sand: Int, loc: Point)(toInf: Boolean): Int =
       val nextMove: Sand = 
-        if checkDir(loc, rock ++ sand, Down) then Down
-        else if checkDir(loc, rock ++ sand, Left) then Left
-        else if checkDir(loc, rock ++ sand, Right) then Right
+        if checkDir(loc, obstacles, Down) then Down
+        else if checkDir(loc, obstacles, Left) then Left
+        else if checkDir(loc, obstacles, Right) then Right
         else Rest
 
       val exit: Boolean = 
-        if toInf then loc.y >= rock.maxBy(_.y).y       // for part01
-        else loc == Point(500, 0) && nextMove == Rest  // for part02
-      if loc.y >= 10000 then sys.error("SAND SLIPS AWAY AND THAT SHOULD NOT HAPPEN")
-      else if exit then sand
+        if toInf then loc.y >= maxY                      // for part01
+        else loc == Point(500, 0) && nextMove == Rest    // for part02
+      if exit then sand
       else nextMove match
-          case Rest  => simSand(rock, loc +: sand, Point(500, 0))(toInf)
-          case dir     => simSand(rock, sand, goDir(loc, dir))(toInf)
+          case Rest  => simSand(obstacles + loc, sand + 1, Point(500, 0))(toInf)
+          case dir   => simSand(obstacles, sand, goDir(loc, dir))(toInf)
   
 
   private val start: Point = Point(500, 0)
-  private val res1 = Sand.simSand(rock, Vector.empty[Point], start)(true)
-  private val answer1 = res1.length
+  private val maxY: Int = rock.maxBy(_.y).y
+  private val answer1 = Sand.simSand(rock, 0, start)(true) 
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
     System.currentTimeMillis
 
+  private val minX: Point = Point(rock.minBy(_.x).x - 10000, rock.maxBy(_.y).y + 2)
+  private val maxX: Point = Point(rock.maxBy(_.x).x + 10000, rock.maxBy(_.y).y + 2)
+  private val newRock: Set[Point] = rock ++ minX.smear(maxX).toSet
+  private val answer2: Int = Sand.simSand(newRock, 0, start)(false) + 1 // +1 accounts for the last grain at source + 
 
-//  private val minX: Point = Point(rock.minBy(_.x).x - 10000, rock.maxBy(_.y).y + 2)
-//  private val maxX: Point = Point(rock.maxBy(_.x).x + 10000, rock.maxBy(_.y).y + 2)
-//  private val newRock: Vector[Point] = rock ++ minX.smear(maxX)
-//  private val res2: Vector[Point] = Sand.simSand(newRock, Vector.empty[Point], start)(false)
-//
-//  val x: String = Point.gridPrintable(start +: (newRock))((p: Point) => 
-//    if newRock.contains(p) then '#' 
-//    else if p == start then '+'
-//    else if res2.contains(p) then 'o'
-//    else '.')
-//  println(x)
-//
-//  val answer2 = res2.length + 1  // accounting for the last sand at the source +
-//  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
