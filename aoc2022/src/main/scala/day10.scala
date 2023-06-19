@@ -40,10 +40,10 @@ object day10 extends App:
   type Reg = Int
   type Cycle = Int
   def readProgram(s: List[(Reg, Cycle)], instruction: Instruction): List[(Reg, Cycle)] =
-    val state: (Reg, Cycle) = s.head
+    val (x, cycle): (Reg, Cycle) = s.head
     instruction.ex match
-      case "noop" => (state._1, state._2 + 1) :: s
-      case "addx" => (state._1 + instruction.value, state._2 + 2) :: (state._1, state._2 + 1) :: s
+      case "noop" => (x, cycle + 1) :: s
+      case "addx" => (x + instruction.value, cycle + 2) :: (x, cycle + 1) :: s
       case _      => sys.error(s"Couldn't process instruction $instruction")
 
 
@@ -62,13 +62,15 @@ object day10 extends App:
   private val width: Int = 40
   type Image = String
   def drawProgram(s: (Reg, Image), instruction: Instruction): (Reg, Image) =
-    val pos: Int = s._2.length % width
-    val next1: Char = if pos >= s._1 - 1 && pos <= s._1 + 1 then '#' else '.'
+    
+    def nextPixel(i: Int, regX: Int): Char = if i >= regX - 1 && i <= regX + 1 then '#' else '.'
+    
+    val (x, image): (Reg, Image) = s
+    val pos: Int = image.length % width
     instruction.ex match
-      case "noop" => (s._1, s._2 + next1)
+      case "noop" => (x, image + nextPixel(pos, x))
       case "addx" =>
-        val next2: Char = if pos+1 >= s._1 - 1 && pos+1 <= s._1 + 1 then '#' else '.'
-        (s._1 + instruction.value, s._2 + next1 + next2)
+        (x + instruction.value, image + nextPixel(pos, x) + nextPixel(pos + 1, x))
       case _ => sys.error(s"Couldn't process instruction $instruction")
 
 
