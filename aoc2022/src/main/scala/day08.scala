@@ -38,21 +38,19 @@ object day08 extends App:
   def isVisible(i: Int, j: Int, trees: TreeRow, treesTransposed: TreeRow): Boolean =
     def checkRow(index: Int, row: TreeRow): Boolean =
       val (left, right): (TreeRow, TreeRow) = row.splitAt(index)
-      if left.forall(_ < row(index)) || right.drop(1).forall(_ < row(index)) then true
-      else false
+      left.forall(_ < row(index)) || right.drop(1).forall(_ < row(index))
 
-    if i == 0 || i == trees.length then true                  // tree is on border and thus visible
-    else if j == 0 || j == treesTransposed.length then true   // tree is on border and thus visible
-    else checkRow(i, trees) || checkRow(j, treesTransposed)   // check if tree is taller than surrounding trees
+    // tree is on border and thus visible OR check if tree is taller than surrounding trees
+    i == 0 || i == (trees.length-1) || j == 0 || j == (treesTransposed.length-1) || checkRow(i, trees) || checkRow(j, treesTransposed)
 
   private val transposedInput = input.transpose
   private val indices: IndexedSeq[(Int, Int)] = for {
-    i <- Range(0, input.head.length)
-    j <- Range(0, input.length)
+    i <- input.indices
+    j <- input.indices
   } yield (i, j)
 
   private val res1: IndexedSeq[Boolean] = indices.map((f: (Int, Int)) => isVisible(f._1, f._2, input(f._2), transposedInput(f._1)))
-  private val answer1 = res1.count(_ == true)
+  private val answer1 = res1.count(identity)
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
