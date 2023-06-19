@@ -1,4 +1,3 @@
-import aoc2022.FlatGrid
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
@@ -45,14 +44,14 @@ object day09 extends App:
       .map(parseMove)
 
   extension(p: Point)
-    def snapToPoint(that: Point): Point =
+    def snapToPoint(that: Point): Point = 
       val dist: Point = that - p
       if math.abs(dist.x) <= 1 && math.abs(dist.y) <= 1 then p  // points are too close no movement needed
       else p + Point(dist.x.sign, dist.y.sign)
 
-  case class RopeMovement(knots: List[Point], seen: Set[Point]):
+  case class RopeMovement(knots: Vector[Point], seen: Set[Point]):
     def moveRope(dir: Point): RopeMovement =
-      val newT: List[Point] = knots.drop(1).scanLeft(knots.head + dir)((thisH: Point, thisT: Point) => thisT.snapToPoint(thisH))
+      val newT: Vector[Point] = knots.drop(1).scanLeft(knots.head + dir)((thisH: Point, thisT: Point) => thisT.snapToPoint(thisH))
       RopeMovement(newT, seen + newT.last)
 
   def simulate(rm: RopeMovement, move: (Char, Int)): RopeMovement =
@@ -67,7 +66,7 @@ object day09 extends App:
           case 'D' => doMove(acc.moveRope(Point(0, -1)), n - 1)
     doMove(rm, move._2)
 
-  private val res1: RopeMovement = input.foldLeft(RopeMovement(List.fill(2)(Point(0,0)), Set.empty))(simulate)
+  private val res1: RopeMovement = input.foldLeft(RopeMovement(Vector.fill(2)(Point(0,0)), Set.empty))(simulate)
   private val answer1 = res1.seen.size
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
@@ -75,6 +74,6 @@ object day09 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  private val res2: RopeMovement = input.foldLeft(RopeMovement(List.fill(10)(Point(0,0)), Set.empty))(simulate)
+  private val res2: RopeMovement = input.foldLeft(RopeMovement(Vector.fill(10)(Point(0,0)), Set.empty))(simulate)
   private val answer2 = res2.seen.size
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
