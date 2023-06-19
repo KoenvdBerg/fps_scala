@@ -2,13 +2,19 @@ import scala.io.*
 import math.*
 import scala.annotation.tailrec
 import aoc2022.Grid2D.Point
-import aoc2022.FlatGrid.printFlatGrid
 
 
 /**
  * PART 01:
  *
- * Easy foldRight
+ * - similar to problem aoc2018 day 17
+ * - started out with using a Set
+ * - improved the printing of multiple points by converting Vector[Point] to a flattened grid 
+ * - used the smear() function on Point again
+ * - moved on to a counter
+ * 
+ * - explain the maxY variable and earlier recomputation of maxY in every iteration. Explain how that optimization was
+ * big once discovered. 
  *
  * PART 02:
  *
@@ -70,13 +76,12 @@ object day14 extends App:
         else loc == Point(500, 0) && nextMove == Rest    // for part02
       if exit then sand
       else nextMove match
-          case Rest  => simSand(obstacles + loc, sand + 1, Point(500, 0))(toInf)
-          case dir   => simSand(obstacles, sand, goDir(loc, dir))(toInf)
+          case Rest  => simSand(obstacles + loc, sand + 1, Point(500, 0))(toInf)  // new grain of sand starts falling
+          case dir   => simSand(obstacles, sand, goDir(loc, dir))(toInf)          // progress a falling grain of sand
   
-
   private val start: Point = Point(500, 0)
   private val maxY: Int = rock.maxBy(_.y).y
-  private val answer1 = Sand.simSand(rock, 0, start)(true) 
+  private val answer1: Int = Sand.simSand(rock, 0, start)(true)
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
