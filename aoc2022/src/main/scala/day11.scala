@@ -9,7 +9,9 @@ import scala.annotation.tailrec
  *
  * PART 02:
  *
- * Uses the Chinese Remainder Theorem. Had to look that up. 
+ * Uses the Chinese Remainder Theorem. Had to look that up based on a hint.
+ * 
+ * https://en.wikipedia.org/wiki/Chinese_remainder_theorem 
  *
  */
 
@@ -71,7 +73,7 @@ object day11 extends App:
         simulate(nextMonkeys, relief, maxRounds, n + 1)
 
   private val res1: Vector[Monkey] = Monkey.simulate(input, (3, Int.MaxValue), 20)
-  private val answer1 = res1.map(_.times).sorted.takeRight(2).product
+  private val answer1: Long = res1.map(_.times).sorted.takeRight(2).product
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
@@ -80,5 +82,5 @@ object day11 extends App:
 
   private val allDivs: Int = input.map(_.div).product
   private val res2: Vector[Monkey] = Monkey.simulate(input, (1, allDivs), 10000)
-  private val answer2 = res2.map(_.times).sorted.takeRight(2).product
+  private val answer2: Long = res2.map(_.times).sorted.takeRight(2).product
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
