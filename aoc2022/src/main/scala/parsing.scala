@@ -133,12 +133,6 @@ object Combinator:
         _ <- whitespace.many
       } yield pp
 
-//    def sequence[A](sep: Parser[Char], p: Parser[A]): Parser[List[A]] =
-//      for {
-//        ppl <- p
-//        next <- other(sep, p).many
-//      } yield ppl :: next
-
     def sequence[A](sep: Parser[Char], p: Parser[A]): Parser[List[A]] =
       for {
         ppl <- p.opt
