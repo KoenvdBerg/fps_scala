@@ -6,19 +6,22 @@ import aoc2022.Grid2D.Point
 
 /**
  * PART 01:
- *
- * - similar to problem aoc2018 day 17
- * - started out with using a Set
- * - improved the printing of multiple points by converting Vector[Point] to a flattened grid 
- * - used the smear() function on Point again
- * - moved on to a counter
  * 
- * - explain the maxY variable and earlier recomputation of maxY in every iteration. Explain how that optimization was
- * big once discovered. 
+ * This problem was similar the the one in AOC2018 day17. I started out by using a Set to track the sand particles. 
+ * However, this turned out to be suboptimal for part02 so I changed it to a counter for counting the rested sand 
+ * particles. 
+ *
+ * I implemented a smear function on the Point case class that makes it super easy to create filled squares or lines 
+ * of Points. This facilitated the parsing of the input sand layers. 
+ *
+ * A final optimization was obtained by making sure to compute the maxY coordinate only once, instead of every iteration
+ * of the sand simulation. This is logical, since the bottom Y coordinate (=maxY) is a fixed point so no recalculation 
+ * is required. 
  *
  * PART 02:
  *
- * Sort and then take 3 and sum
+ * Basically I changed the exit condition for the simSand() function. Because part01 was optimized, this one could be 
+ * computed using the same brute force method of computing the resting location for every sand particle. 
  *
  */
 
