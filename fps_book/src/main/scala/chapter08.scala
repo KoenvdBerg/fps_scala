@@ -196,7 +196,7 @@ object testing:
 
 
 
-@main def chapter08: Unit =
+@main def run_chapter08: Unit =
   println("KLFJD")
 
   import testing.*
