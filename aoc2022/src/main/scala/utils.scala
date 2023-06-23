@@ -4,6 +4,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.matching.Regex
 
+
+
 object Grid2D:
 
   case class Point(x: Int, y: Int):
@@ -31,6 +33,13 @@ object Grid2D:
 
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
+    def smear(that: Point): Vector[Point] =
+      val sm: Vector[Point] = for {
+        xs <- Range(x.min(that.x), that.x.max(x) + 1).toVector
+        ys <- Range(y.min(that.y), that.y.max(y) + 1).toVector
+      } yield Point(xs, ys)
+      if sm.head == that then sm.reverse else sm
+
     def bfsSearch(targets: Vector[Point], obstacles: Vector[Point]): LazyList[Vector[Point]] =
       import Algorithms.bfs
       val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
@@ -47,7 +56,6 @@ object Grid2D:
       def earlyExit: Vector[Point] => Boolean = (p: Vector[Point]) => targets.contains(p.head)
 
       bfs(LazyList(Vector(this)))(search, earlyExit)
-
 
   object Point:
 
@@ -78,6 +86,30 @@ object Grid2D:
         case _ => sys.error("print2dGrid ERROR")
 
       go(obstacles.sortBy(_._1.toTuple.swap).distinct)
+
+  
+  case class Line(delta: Int, b: Int):
+    def fx: Int => Int = (x: Int) => delta * x + b
+    def fy: Int => Int = (y: Int) => (y - b) / delta
+    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
+      (y: Int) => 
+        val x: Int = fy(y)
+        if x < min || x > max then None else Some(x)
+        
+
+    def intersect(that: Line): Option[Point] =
+      if delta == that.delta then None // parallel (identical) lines no intersection possible
+      else
+        val x = (that.b - b) / (delta - that.delta)
+        Some(Point(x, fx(x)))
+
+  object Line:
+    def makeLine(p1: Point, p2: Point): Line =
+      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
+      val b: Int = p1.y - (delta * p1.x)
+      Line(delta, b)
+    def makeLineFragment(p1: Point, p2: Point): ((Point, Point), Line) =
+      ((p1, p2), makeLine(p1, p2))
 
 object FlatGrid:
 
