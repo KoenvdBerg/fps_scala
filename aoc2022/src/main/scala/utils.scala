@@ -108,8 +108,6 @@ object Grid2D:
       val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
       val b: Int = p1.y - (delta * p1.x)
       Line(delta, b)
-    def makeLineFragment(p1: Point, p2: Point): ((Point, Point), Line) =
-      ((p1, p2), makeLine(p1, p2))
 
 object FlatGrid:
 

@@ -6,6 +6,8 @@ import aoc2022.Grid2D.{Point, Line}
 /**
  * PART 01:
  *
+ * TODO: include figure with the diamond and the coordinate ends of the lines 
+ *
  *
  * PART 02:
  *
