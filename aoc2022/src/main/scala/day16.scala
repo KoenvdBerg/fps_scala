@@ -1,0 +1,88 @@
+import scala.io.*
+import aoc2022.Algorithms.Dijkstra.*
+
+import scala.collection.immutable.Queue
+
+/**
+ * 
+ * IDEAS: 
+ * 
+ * 2 data structures: 1 Map with valve -> flow rate, another Map with valve -> next valves
+ * 
+ * use Dijkstra:
+ * Node has Node(loc: String, time: Int, cumScore: Int)
+ * each iteration in Dijkstra node subtracts time with 1, cumScore is computed from time and valve flow. Flow scores
+ * are obtained from map defined above. Next locs are obtained from map above. 
+ * 
+ * Final score is obtained by filtering Dijkstra output for time == 0 and then max on cumScore. 
+ * 
+ */
+
+
+object day16 extends App:
+
+  private val day: String =
+    this.getClass.getName.drop(3).init
+
+  private val start1: Long =
+    System.currentTimeMillis
+
+  private val (routes, valves): (Map[String, List[String]], Map[String, Int]) =
+  
+    def parse(s: String): ((String, Int), (String, List[String])) = s match
+      case s"Valve $valve has flow rate=$rate; tunnels lead to valves $routes" => ((valve, rate.toInt), (valve, routes.split(',').map(_.trim).toList)) 
+      case s"Valve $valve has flow rate=$rate; tunnel leads to valve $route"   => ((valve, rate.toInt), (valve, List(route)))
+      case _ => sys.error(s"couldn't parse valve string: $s")
+
+    val infile: List[((String, Int), (String, List[String]))] = Source
+      .fromResource(s"day$day.txt")
+      .getLines
+      .toList
+      .map(parse)
+
+    val routes: Map[String, List[String]] = infile.map(_._2).toMap
+    val valves: Map[String, Int] = infile.map(_._1).toMap
+    (routes, valves)
+
+  case class Node(loc: String, time: Int, cumScore: Int, open: Set[String]):
+
+    def openValve(valves: Map[String, Int]): Node =
+      valves.get(loc) match
+        case None => this
+        case Some(r) => copy(cumScore = cumScore + r * (time - 1), open = open + loc, time = time - 1)
+  
+  def routeGraph(routes: Map[String, List[String]]): Graph[String] = (loc: String) => routes(loc).map(_ -> 1).toMap
+        
+  def exploreValves(valves: Map[String, Int], waypoints: Graph[String], start: Node): List[Node] =
+
+    def go(queue: Queue[Node], acc: List[Node]): List[Node] =
+      if queue.isEmpty then acc
+      else
+        val (n, further): (Node, Queue[Node]) = queue.dequeue
+        if n.open.size == valves.size then go(further, n :: acc)  // all valves open, stop and add to acc
+        else if n.time <= 0 then go(further, n :: acc)            // no time left, stop and add to acc
+        else
+          val openValve: Node = n.openValve(valves)  // always open the valve at current loc
+          val toExplore: Set[String] = valves.keySet.diff(openValve.open)  // next valves to check
+          if toExplore.isEmpty then go(further.enqueue(openValve), acc)    // in case this was the last possible valve to open
+          else if further.exists((t: Node) => t.cumScore > openValve.cumScore && t.time > openValve.time) then go(further, acc)  // skip this one 
+          else 
+            val next: List[Node] = toExplore.map((tgt: String) =>
+              val timeRequired: Int = shortestDistance(waypoints)(openValve.loc, tgt).getOrElse(sys.error(s"couldn't compute distance for: $openValve and $tgt"))
+              openValve.copy(loc = tgt, time = openValve.time - timeRequired)).toList
+            go(further.enqueueAll(next), acc)
+            
+    go(Queue(start), List.empty)
+    
+    
+    
+  private val waypoints: Graph[String] = routeGraph(routes)
+  private val scores: List[Node] = exploreValves(valves.filter(_._2 != 0), waypoints, Node("AA", 30, 0, Set.empty[String]))
+  private val answer1: Int = scores.maxBy(_.cumScore).cumScore
+  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
+
+  private val start2: Long =
+    System.currentTimeMillis
+
+  private val answer2 = None
+  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
