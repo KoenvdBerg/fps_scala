@@ -75,14 +75,18 @@ object day16 extends App:
     go(Queue(start), List.empty)
     
     
-    
   private val waypoints: Graph[String] = routeGraph(routes)
-  private val scores: List[Node] = exploreValves(valves.filter(_._2 != 0), waypoints, Node("AA", 30, 0, Set.empty[String]))
-  private val answer1: Int = scores.maxBy(_.cumScore).cumScore
-  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
+  private val valvesThatMatter: Map[String, Int] = valves.filter(_._2 != 0)
+  private val scores: List[Node] = exploreValves(valvesThatMatter, waypoints, Node("AA", 30, 0, Set.empty[String]))
+  private val answer1: Node = scores.maxBy(_.cumScore)
+  println(s"Answer day $day part 1: ${answer1.cumScore} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
-
-  private val answer2 = None
+    
+  private val scores2a: List[Node] = exploreValves(valvesThatMatter, waypoints, Node("AA", 26, 0, Set.empty))
+  private val elephant: Node = scores2a.maxBy(_.cumScore)
+  private val scores2b: List[Node] = exploreValves(valvesThatMatter.filterNot(v => elephant.open.contains(v._1)), waypoints, Node("AA", 26, 0, Set.empty))
+  private val elve: Node = scores2b.maxBy(_.cumScore)
+  private val answer2 = elve.cumScore + elephant.cumScore
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
