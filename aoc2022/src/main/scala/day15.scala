@@ -6,11 +6,108 @@ import aoc2022.Grid2D.{Point, Line}
 /**
  * PART 01:
  *
- * TODO: include figure with the diamond and the coordinate ends of the lines 
- *
+ * I started out with a verbose but really slow brute force method for part01. Although this worked, in part02 I found 
+ * out that there's only 1 possible location for the distress beacon to live. Using this assumption, I could optimize 
+ * part01 using math. 
+ * 
+ * Each beacon forms a diamond shape of which its 4 endpoints (A,B,C,D) can be found using the x and y coordinates of 
+ * the Sensor and the distance to the closest beacon (d): 
+ * 
+ *   ┌────────────────────────┐
+ *   │                        │
+ *   │                        │
+ *   │           A            │
+ *   │          ###           │
+ *   │         #####          │
+ *   │        #######         │
+ *   │       #########        │
+ *   │      ###########       │
+ *   │     D#####S#####B      │
+ *   │      ###########       │
+ *   │       #########        │
+ *   │        #######         │
+ *   │         #####          │
+ *   │          ###           │
+ *   │           C            │
+ *   │                        │
+ *   │                        │
+ *   │                        │
+ *   └────────────────────────┘
+ * 
+ * Then the diamond can be modelled through the 4 diagonal lines that run through these points. I modeled these lines 
+ * using a Line case class (part of utils.scala). The lines only run from point to point (e.g. A to D), as running them
+ * infinitely results in coordinates that are no longer part of the diamond. 
+ * 
+ * The solution involves modeling all these lines, and computing f(y) for y=200000. Then taking the lowest X-coordinate
+ * largest X-coordinate from the result. The solution then is: xmax - xmin - knownbeacons(at y=200000). The only way 
+ * this doesn't work is if the distress beacon happens to be at y=200000. 
  *
  * PART 02:
  *
+ * Looking for all possible locations in the XY space of 0 to 4000000 is computationally impossible due to loading times.
+ * Thus, I resorted back to the line strategy from part01.
+ * 
+ * The distress beacons has to be on one of the 4 edge lines of a sensor diamond. Moreover, it has to be on the 
+ * intersection of one of these 4 edges with another edge form anther sensor diamond, because if not, then multiple
+ * locations will be present and that doesn't satisfy the given that only 1 location for a distress beacon is present. 
+ * 
+ * In the images below this is illustrated. The locations at point X form possible locations for the distress beacon 
+ * to be present. The point . in image 2 is an example of a possible location for the distress signal. Note that it 
+ * must be on an intersection of the diagonal lines of the surrounding Sensor diamonds (here sensors indicated with 
+ * F, Q, W, R)
+ * 
+ * 
+ *   ┌──────────────────────────────────────────┐
+ *   │                 . .                      │
+ *   │                  X                       │
+ *   │                 . .                      │
+ *   │            .   .   .                     │
+ *   │             . .     .                    │
+ *   │              X       .                   │
+ *   │             . .       .   .              │
+ *   │            A   .       . .               │
+ *   │           .#.   .       X                │
+ *   │          .###.   .     . .               │
+ *   │         .#####.   .   .   .              │
+ *   │  .     .#######.   . .     .             │
+ *   │   .   .#########.   X       .            │
+ *   │    . .###########. . .       .           │
+ *   │     D######S######B   .       .          │
+ *   │    . .###########.     .     .#.         │
+ *   │   .   .#########.       .   .###.   .    │
+ *   │  .     .#######.         . .#####. .     │
+ *   │         .#####.           .#######.      │
+ *   │          .###.             .#####. .     │
+ *   │           .#.               .###.   .    │
+ *   │            C                 .#.         │
+ *   │           . .                 .          │
+ *   │          .   .               . .         │
+ *   │         .     .             .   .        │
+ *   │                                          │
+ *   └──────────────────────────────────────────┘
+ * 
+ *            1         2
+ *   0        0         0   x
+ *  0┌────────────────────────┐
+ *   │S########S#############S│
+ *   │#############R####B#####│
+ *   │########################│
+ *   │########################│
+ *   │#####B##################│
+ *   │##################F#####│
+ *   │##############.#########│
+ *   │########################│
+ *   │########################│
+ * 10│########W######Q########│
+ *   │#################B######│
+ *   │##B#####################│
+ *   │########################│
+ *   │########################│
+ *  y│S######################S│
+ *   └────────────────────────┘
+ * 
+ * The solution involves checking for the computed line intersections XY coordinates if it's within the range of a 
+ * sensor. If not, then that must be the distress beacon. 
  *
  */
 
