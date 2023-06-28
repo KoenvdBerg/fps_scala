@@ -24,12 +24,16 @@ object run_chapter15_fahrenheit extends IOApp:
   private def toCelcius(fahrenheit: Double): Double =
     (5.0 / 9.0) * (fahrenheit - 32)
     
-  private def program: Process[String, Double] = Process.lift((s: String) => s.toDouble) |> Process.lift(toCelcius)
+  private def program: Process[String, String] =
+    Process.filter((line: String) => !line.startsWith("#"))     // filter comment lines
+    |> Process.filter((line: String) => line.trim.nonEmpty)     // filter blank lines
+    |> Process.lift((line: String) => toCelcius(line.toDouble)) // convert string to double and to celcius 
+    |> Process.lift((d: Double) => s"$d\n")                     // convert back into string
 
   def run(args: List[String]): IO[ExitCode] =
     args.headOption match
       case _ => (for {
-        k <- Process.processFile(infile, program, Nil)((b: List[Double], a: Double) => a :: b)
+        k <- Process.processFile(infile, program, "")((b: String, a: String) => b + a)
         _ <- IO.println(s"the file check result: $k")
       } yield ()).as(ExitCode.Success)
   
