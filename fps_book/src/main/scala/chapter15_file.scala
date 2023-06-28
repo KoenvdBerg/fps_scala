@@ -11,7 +11,25 @@ object run_chapter15_file extends IOApp :
   def run(args: List[String]): IO[ExitCode] = 
     args.headOption match
       // case None    => IO.println(s"Please enter an existing file").as(ExitCode(2))
-      case x => (for {
+      case _ => (for {
         k <- Process.processFile(infile, transducer, false)(_ || _)
         _ <- IO.println(s"the file check result: $k")
       } yield ()).as(ExitCode.Success)
+      
+object run_chapter15_fahrenheit extends IOApp:
+  import chapter15.Process
+  
+  val infile: String = "/Users/kvandenberg/tmp"
+    
+  private def toCelcius(fahrenheit: Double): Double =
+    (5.0 / 9.0) * (fahrenheit - 32)
+    
+  private def program: Process[String, Double] = Process.lift((s: String) => s.toDouble) |> Process.lift(toCelcius)
+
+  def run(args: List[String]): IO[ExitCode] =
+    args.headOption match
+      case _ => (for {
+        k <- Process.processFile(infile, program, Nil)((b: List[Double], a: Double) => a :: b)
+        _ <- IO.println(s"the file check result: $k")
+      } yield ()).as(ExitCode.Success)
+  
