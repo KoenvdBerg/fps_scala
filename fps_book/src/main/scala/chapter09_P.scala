@@ -1,6 +1,4 @@
 import scala.util.matching.Regex
-import chapter09.Parsers
-
 import scala.language.implicitConversions
 
 object Combinator:
@@ -38,21 +36,11 @@ object Combinator:
 
   type Parser[+A] = Location => (Either[String, A], Location)
 
-  extension[A](p: Parser[A])
-    def map[AA >: A, B](f: A => B): Parser[B] =
-      P.flatMap(p)(pp => P.succeed(f(pp)))
-    def flatMap[AA >: A, B](f: A => Parser[B]): Parser[B] = P.flatMap(p)(f)
-    def |[B >: A](p2: Parser[B]): Parser[B] = P.or(p, p2)
-    def or[B >: A](p2: Parser[B]): Parser[B] = P.or(p, p2)
-    def many[AA >: A]: Parser[List[A]] = P.many(p)
-    def many1[AA >: A]: Parser[List[A]] = P.many1(p)
-    def slice: Parser[String] = P.slice(p)
-    def **[B >: A](p2: Parser[B]): Parser[(A, B)] = P.product(p, p2)
-    def run[AA >: A](input: String): Either[String, A] = P.run(p)(input)
-
   object P:
-    // PRIMITIVES
-    def run[A](p: Parser[A])(input: String): Either[String, A] = p(Location(input))._1
+    // CONSTRUCTORS
+    def succeed[A](a: A): Parser[A] =
+      (i: Location) => (Right(a), i)
+
     def string(s: String): Parser[String] =
       (i: Location) =>
         val searchUntil: Int = s.length + i.index
@@ -72,53 +60,69 @@ object Combinator:
               if searchUntil > i.errorIndex then s else i.trace))
           case None    =>
             (Left(i.makeErrorMessage(s.toString())), i)
-    def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A] =
-      (i: Location) =>
-        s1(i) match
-          case (Left(_), loc) => s2(i.updateErrorIndex(loc.errorIndex, loc.trace))
-          case r              => r
-
-    def succeed[A](a: A): Parser[A] =
-      (i: Location) => (Right(a), i)
-
-    def slice[A](p: Parser[A]): Parser[String] =
-      map(p){
-        case Nil => ""
-        case h :: t => (h :: t).mkString("")
-        case x => x.toString
-      }
-
-    def product[A, B](p: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
-     flatMap(p)(pp => map(p2)(pp2 => (pp, pp2)))
-    def map2[A, B, C](p: Parser[A], p2: => Parser[B])(f: (A, B) => C): Parser[C] =
-      flatMap(p)(pp => map(p2)(pp2 => f(pp, pp2)))
-    def map[A, B](p2: Parser[A])(f: A => B): Parser[B] =
-      flatMap(p2)(pp => succeed(f(pp)))
-    def flatMap[A, B](p: Parser[A])(f: A => Parser[B]): Parser[B] =
-      (i: Location) =>
-        p(i) match
-          case (Right(v), loc) => f(v)(loc)
-          case (Left(e), loc)  => (Left(e), i.updateErrorIndex(loc.errorIndex, loc.trace))
-
-    // HELPER FUNCTIONS
-    def many[A](p: Parser[A]): Parser[List[A]] =
-      or(map2(p, many(p))(_ :: _), succeed(List()))
-
-    def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
-      if n <= 0 then succeed(Nil)
-      else
-        map2(p, listOfN(n - 1, p))(_ :: _)
-
-    def count[A](p: Parser[List[A]]): Parser[Int] = map(p)((as: List[A]) => as.length)
 
     def char(c: Char): Parser[Char] = map(string(c.toString))((s: String) => s.charAt(0))
 
-    def many1[A](p: Parser[A]): Parser[List[A]] = map2(p, many(p))(_ :: _)
+    // EXTENSIONS
+    extension[A] (self: Parser[A])
+      def flatMap[B](f: A => Parser[B]): Parser[B] =
+        (i: Location) =>
+          self(i) match
+            case (Right(v), loc) => f(v)(loc)
+            case (Left(e), loc) => (Left(e), i.updateErrorIndex(loc.errorIndex, loc.trace))
 
+      def map[B](f: A => B): Parser[B] =
+        self.flatMap(pp => succeed(f(pp)))
+      
+      def or(s2: => Parser[A]): Parser[A] =
+        (i: Location) =>
+          self(i) match
+            case (Left(_), loc) => s2(i.updateErrorIndex(loc.errorIndex, loc.trace))
+            case r              => r
+      
+      def |(s2: => Parser[A]): Parser[A] = self.or(s2)
+      
+      def run(input: String): Either[String, A] = self(Location(input))._1
+      
+      def opt: Parser[Option[A]] =
+        (i: Location) =>
+          self(i) match
+            case (Right(v), loc) => (Right(Some(v)), loc)
+            case (Left(_), loc) => (Right(None), loc)
+            
+      def slice: Parser[String] =
+        self.map {
+          case Nil => ""
+          case h :: t => (h :: t).mkString("")
+          case x => x.toString
+        }
+
+      def product[B](p2: => Parser[B]): Parser[(A, B)] =
+        self.flatMap(pp => p2.map(pp2 => (pp, pp2)))
+      
+      def **[B](p2: => Parser[B]): Parser[(A, B)] =
+        self.product(p2)
+      
+      def map2[B, C](p2: => Parser[B])(f: (A, B) => C): Parser[C] =
+        self.flatMap(pp => p2.map(pp2 => f(pp, pp2)))
+
+      def many: Parser[List[A]] =
+        self.map2(self.many)(_ :: _).or(succeed(List()))
+
+      def many1: Parser[List[A]] = self.map2(self.many)(_ :: _)
+    
+    
+    // HELPER FUNCTIONS
+    def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
+      if n <= 0 then succeed(Nil)
+      else
+        p.map2(listOfN(n - 1, p))(_ :: _)
+
+    def count[A](p: Parser[List[A]]): Parser[Int] = map(p)((as: List[A]) => as.length)
+    
     def other[A, B](p: Parser[A], p2: Parser[B]): Parser[B] =
       for {_ <- p; pp <- p2} yield pp
 
-    // TODO: implement only skipping whitespace in the front
     def skipWhiteSpace[A](p: Parser[A]): Parser[A] =
       for {
         _ <- whitespace.many
@@ -128,9 +132,11 @@ object Combinator:
 
     def sequence[A](sep: Parser[Char], p: Parser[A]): Parser[List[A]] =
       for {
-        ppl <- p
+        ppl <- p.opt
         next <- other(sep, p).many
-      } yield ppl :: next
+      } yield ppl.map(_ :: next).getOrElse(List.empty)
+
+
 
     // COMBINATORS
     val digit: Parser[Int] = regex("""[0-9]""".r).map(_.toInt)  //skipWhiteSpace(regex("""[0-9]""".r).map(_.toInt))
@@ -154,7 +160,6 @@ object Combinator:
       v <- (letter | digit | specials).many.slice
       _ <- char('"')
     } yield v
-
 
 @main def testP: Unit =
   import chapter06_state.State
@@ -186,19 +191,19 @@ object Combinator:
 
   def productLaw(in: Gen[String]): Prop =
     val c1: Parser[(Int, Int)] = succeed((1, 1))
-    val c2: Parser[(Int, Int)] = product(succeed(1), succeed(1))
+    val c2: Parser[(Int, Int)] = succeed(1) ** succeed(1)
     equal(c1, c2)(in)
 
 
   def productLaw2[A, B](p1: Parser[A], p2: Parser[B])(in: Gen[String]): Prop =
     val c1: Parser[(A, B)] = p1.flatMap((pp1: A) => p2.map((pp2: B) => (pp1, pp2)))
-    val c2: Parser[(A, B)] = product(p1, p2)
+    val c2: Parser[(A, B)] = p1 ** p2
     equal(c1, c2)(in)
 
   def productProp: Prop =
     Prop.check {
       val c1: Parser[String] = succeed("a")
-      run(product(c1, c1))("a") == Right(("a", "a"))
+      run(c1 ** c1)("a") == Right(("a", "a"))
     }
 
   def listOfNCheck: Prop =
