@@ -5,16 +5,17 @@ import scala.collection.immutable.Queue
 
 /**
  * 
- * IDEAS: 
+ * PART 01:
  * 
- * 2 data structures: 1 Map with valve -> flow rate, another Map with valve -> next valves
+ * I used Dijkstra to get a graph of all the locations of valves that matter (i.e. have a flow rate > 0). This allowed
+ * the exploreValves() function to quickly walk through the valves. This function walks all the possible routes and 
+ * returns all the end Nodes that track the cumulative score. The function halts if all the valves are opened or if 
+ * the remaining time is 0. Also, Nodes that have a lower score than already existing nodes and fewer time left are 
+ * trimmed.
  * 
- * use Dijkstra:
- * Node has Node(loc: String, time: Int, cumScore: Int)
- * each iteration in Dijkstra node subtracts time with 1, cumScore is computed from time and valve flow. Flow scores
- * are obtained from map defined above. Next locs are obtained from map above. 
+ * PART 02:
  * 
- * Final score is obtained by filtering Dijkstra output for time == 0 and then max on cumScore. 
+ * Simply used the algorithm of part01 twice, leaving out the opened valves from the first iteration. 
  * 
  */
 
