@@ -26,24 +26,26 @@ object day11 extends App:
 
   private val input: Vector[Monkey] =
 
-    def parseMonkey(s: String): Monkey = s match
-      case s"Monkey$id:Startingitems:${items}Operation:${op}Test:divisibleby${test}Iftrue:throwtomonkey${t}Iffalse:throwtomonkey$f" =>
-        Monkey(id.toInt, items.split(",").map(_.toLong).toVector, parseOp(op), (i: Long) => i % test.toInt == 0, test.toInt, (t.toInt, f.toInt), 0L)
-      case _ => sys.error(s"error, couldn't parse monkey string: $s")
+    def parseMonkey(vs: Vector[String]): Monkey = vs match
+      case Vector(s"Monkey $id:", s"Starting items: ${items}", s"Operation: ${op}", 
+        s"Test: divisible by ${test}", s"If true: throw to monkey ${t}",
+        s"If false: throw to monkey $f") => 
+        Monkey(id.toInt, items.split(",").map(_.trim.toLong).toVector, parseOp(op), (i: Long) => i % test.toInt == 0, test.toInt, (t.toInt, f.toInt), 0L)
+      case _ => sys.error(s"error, couldn't parse monkey string: $vs")
 
     def parseOp(s: String): Long => Long = s match
-      case s"new=old*old" => (in: Long) => in * in
-      case s"new=old*$i" => (in: Long) => in * i.toInt
-      case s"new=old+$i" => (in: Long) => in + i.toInt
+      case s"new = old * old" => (in: Long) => in * in
+      case s"new = old * $i" => (in: Long) => in * i.toInt
+      case s"new = old + $i" => (in: Long) => in + i.toInt
       case _ => sys.error(s"couldn't parse operation: $s")
 
     Source
       .fromResource(s"day$day.txt")
       .getLines
-      .grouped(7)
-      .map(_.mkString("").filterNot(_.isWhitespace))
-      .map(parseMonkey)
-      .toVector
+      .filterNot(_.isEmpty)
+      .map(_.trim)
+      .grouped(6).toVector
+      .map((x: Seq[String]) => parseMonkey(x.toVector))
 
   case class Monkey(id: Int, items: Vector[Long], op: Long => Long, test: Long => Boolean, div: Int, todo: (Int, Int), times: Long):
     def inspect(reliefVal: Int, CRT: Int): (Monkey, Vector[(Long, Int)]) =
@@ -57,19 +59,15 @@ object day11 extends App:
 
   object Monkey:
     @tailrec
-    def round(monkeys: Vector[Monkey], relief: (Int, Int), n: Int = 0): Vector[Monkey] =
-      if n >= monkeys.size then monkeys
-      else
-        val (newM, inspecting): (Monkey, Vector[(Long, Int)]) = monkeys(n).inspect(relief._1, relief._2)
-        val nextMonkeys: Vector[Monkey] = inspecting.foldLeft(monkeys)((ms: Vector[Monkey], u: (Long, Int)) =>
-          ms.updated(u._2, ms(u._2).receive(u._1)))
-        round(nextMonkeys.updated(n, newM), relief, n + 1)
-
-    @tailrec
     def simulate(monkeys: Vector[Monkey], relief: (Int, Int), maxRounds: Int, n: Int = 0): Vector[Monkey] =
       if n >= maxRounds then monkeys
       else
-        val nextMonkeys: Vector[Monkey] = round(monkeys, relief)
+        val nextMonkeys: Vector[Monkey] = monkeys.indices.foldLeft(monkeys)((b: Vector[Monkey], i: Int) =>
+          val (newM, inspecting): (Monkey, Vector[(Long, Int)]) = b(i).inspect(relief._1, relief._2)
+          val roundMonkeys: Vector[Monkey] = inspecting.foldLeft(b)((ms: Vector[Monkey], u: (Long, Int)) =>
+            ms.updated(u._2, ms(u._2).receive(u._1)))
+          roundMonkeys.updated(i, newM)
+        )
         simulate(nextMonkeys, relief, maxRounds, n + 1)
 
   private val res1: Vector[Monkey] = Monkey.simulate(input, (3, Int.MaxValue), 20)
