@@ -18,7 +18,6 @@ object MyJSONParser:
     }
     """
 
-
   enum JSON:
     case JNull
     case JNumber(get: Double)
