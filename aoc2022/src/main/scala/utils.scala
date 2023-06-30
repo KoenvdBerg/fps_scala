@@ -1,6 +1,7 @@
 package aoc2022
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Queue
 import scala.collection.mutable
 import scala.util.matching.Regex
 
@@ -150,6 +151,21 @@ object Algorithms:
       else go(cont.maxBy(_._2)._1, step)
 
     go(start, initStep)
+
+
+  def floodAlgorithm[N](g: N => Set[N])(source: N): Set[N] =
+    import scala.collection.immutable.Queue
+
+    @tailrec
+    def go(res: Set[N], active: Queue[N]): Set[N] =
+      if active.isEmpty then res
+      else
+        val (node, rem): (N, Queue[N]) = active.dequeue
+        val neighbours: Set[N] = g(node).filter((n: N) => !res(n))  // node should not have been seen before
+        val nextQueue: Queue[N] = rem.enqueueAll(neighbours)        // add all next nodes to queue
+        go(res ++ neighbours, nextQueue)
+
+    go(Set.empty[N], Queue(source))
 
 
   object Dijkstra:
