@@ -215,3 +215,49 @@ object VectorUtils:
       val nbound = n % s.length // skipping the full rotation rounds
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
+
+
+
+object CycleFinder:
+
+  import scala.collection._
+
+  case class Cycle[A](stemLength: Int, cycleLength: Int, cycleHead: A, cycleLast: A, cycleHeadRepeat: A)
+  
+
+  extension [A](it: Iterator[A]) def zipWithPrev: Iterator[(Option[A], A)] =
+    new AbstractIterator[(Option[A], A)]:
+
+      private var prevOption: Option[A] =
+        None
+
+      override def hasNext: Boolean =
+        it.hasNext
+
+      override def next: (Option[A], A) =
+        val cur = it.next
+        val ret = (prevOption, cur)
+        prevOption = Some(cur)
+        ret
+
+  def find[A, B](coll: IterableOnce[A])(m: A => B): Option[Cycle[A]] =
+
+    val trace: mutable.Map[B, (A, Int)] =
+      mutable.Map[B, (A, Int)]()
+
+    coll.iterator
+      .zipWithPrev
+      .zipWithIndex
+      .map { case ((last, prev), idx) => (last, prev, trace.put(m(prev), (prev, idx)), idx) }
+      .collectFirst { case (Some(last), repeat, Some((prev, prevIdx)), idx) =>
+        Cycle(
+          stemLength      = prevIdx,
+          cycleLength     = idx - prevIdx,
+          cycleHead       = prev,
+          cycleLast       = last,
+          cycleHeadRepeat = repeat
+        )
+      }
+
+  def find[A, B](x0: A, f: A => A)(m: A => B): Cycle[A] =
+    find(Iterator.iterate(x0)(f))(m).get
