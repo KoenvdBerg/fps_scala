@@ -1,7 +1,8 @@
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
-import aoc2022.Combinator.*
+import aoc2022.Combinator.Parser
+import aoc2022.Combinator.Parser.*
 import day13.Packet.parsePacket
 
 /**
@@ -44,11 +45,11 @@ object day13 extends App:
     
   object Packet: 
     
-    val n: Parser[N] = P.number.map((s: String) => N(s.toInt))
+    val n: Parser[N] = Parser.number.map((s: String) => N(s.toInt))
     val l: Parser[L] = (for {
-      _ <- P.char('[')
-      s <- P.sequence(P.char(','), packet)
-      _ <- P.char(']')
+      _ <- Parser.char('[')
+      s <- Parser.sequence(Parser.char(','), packet)
+      _ <- Parser.char(']')
     } yield s).map(L.apply)
     val packet: Parser[Packet] = n | l
     def parsePacket(s: String): Packet = packet.run(s) match
