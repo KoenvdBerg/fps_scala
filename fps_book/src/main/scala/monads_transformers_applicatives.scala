@@ -122,9 +122,7 @@ object AFPLab2:
         def foldMap[B](m: Monoid[B])(f: A => B): B = fa match
           case RoseLeaf => m.mzero
           case RoseNode(v, vs) => m.mappend(f(v), 
-            vs.foldLeft(m.mzero)((b: B, rt: RoseTree[A]) => m.mappend(b, rt.foldMap(m)(f)))) 
-        
-        
+            vs.foldLeft(m.mzero)((b: B, rt: RoseTree[A]) => m.mappend(b, rt.foldMap(m)(f))))
 
     
 @main def ksdjf: Unit =
