@@ -1,6 +1,6 @@
-object AFP: 
+object AFPLab1: 
   
-  enum PermTree[+A]: 
+  enum PermTree[+A]:
     case Node(l: List[(A, PermTree[A])])
     case Leaf
     
@@ -59,22 +59,26 @@ object AFP:
         (v, vs) <- split(is)
       } yield (v, listToPermTreePrune(vs, v, (x: Int, y: Int) => math.abs(x - y) < d)))
       permTreeToPerms(t)
-      A
       
 @main def PermutationTree: Unit =
-  import AFP.PermTree
-  import AFP.PermTree.{Node, Leaf}
+  import AFPLab1.PermTree
+  import AFPLab1.PermTree.{Node, Leaf}
 
-  val x: List[Int] = List(1,40,3,60,5,16,7,18,9, 10)
+  val x: List[Int] = List(1,2,3,4,5,6,7,8,9,10)
+  
 
 
   val start1: Long = System.currentTimeMillis
   val res1 = PermTree.smoothPerms(7, x)
-  println(s"[${System.currentTimeMillis - start1}ms]")
+  println(s"Using Tree: [${System.currentTimeMillis - start1}ms]")
+
+//  val start2: Long = System.currentTimeMillis
+//  val res2 = PermTree.perms(x)
+//  println(s"Not using Tree: [${System.currentTimeMillis - start2}ms]")
   
   val start2: Long = System.currentTimeMillis
   val res2 = PermTree.smoothPermsQuick(7, x)
-  println(s"[${System.currentTimeMillis - start2}ms]")
+  println(s"Tree Quick: [${System.currentTimeMillis - start2}ms]")
   
 
   
