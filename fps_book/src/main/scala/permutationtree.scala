@@ -1,4 +1,4 @@
-object AFP: 
+object AFPLab1: 
   
   enum PermTree[+A]: 
     case Node(l: List[(A, PermTree[A])])
@@ -59,11 +59,10 @@ object AFP:
         (v, vs) <- split(is)
       } yield (v, listToPermTreePrune(vs, v, (x: Int, y: Int) => math.abs(x - y) < d)))
       permTreeToPerms(t)
-      A
       
 @main def PermutationTree: Unit =
-  import AFP.PermTree
-  import AFP.PermTree.{Node, Leaf}
+  import AFPLab1.PermTree
+  import AFPLab1.PermTree.{Node, Leaf}
 
   val x: List[Int] = List(1,40,3,60,5,16,7,18,9, 10)
 
