@@ -1,3 +1,5 @@
+package summer_school
+
 object AFPLab1: 
   
   enum PermTree[+A]:
@@ -62,7 +64,7 @@ object AFPLab1:
       
 @main def PermutationTree: Unit =
   import AFPLab1.PermTree
-  import AFPLab1.PermTree.{Node, Leaf}
+  import AFPLab1.PermTree.{Leaf, Node}
 
   val x: List[Int] = List(1,2,3,4,5,6,7,8,9,10)
   
