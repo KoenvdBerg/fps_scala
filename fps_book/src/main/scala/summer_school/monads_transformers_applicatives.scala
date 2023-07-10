@@ -1,4 +1,8 @@
-import AFPLab2.RoseTree.RoseLeaf
+package summer_school
+
+import summer_school.AFPLab2.RoseTree.{RoseLeaf, RoseNode}
+import summer_school.AFPLab2.Tree.{Leaf, Node}
+import summer_school.AFPLab2.{RoseTree, Tree}
 
 /**
  * Help can be found here: 
@@ -125,10 +129,9 @@ object AFPLab2:
             vs.foldLeft(m.mzero)((b: B, rt: RoseTree[A]) => m.mappend(b, rt.foldMap(m)(f))))
 
     
-@main def ksdjf: Unit =
-  import AFPLab2.Tree
+@main def tree_data: Unit =
   import AFPLab2.RoseTree.*
-  import AFPLab2.RoseTree
+  import AFPLab2.{RoseTree, Tree}
   
   val t = Tree.Node(Tree.Leaf(1), Tree.Leaf(3))
   val g: Tree[Int => Int] = Tree.Leaf((i: Int) => i * i)
