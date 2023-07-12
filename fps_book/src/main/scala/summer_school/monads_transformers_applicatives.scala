@@ -25,8 +25,8 @@ object AFPLab2:
       def <*>[B](gf: F[A => B]): F[B] = ap(fa)(gf)
       def map2[B, C](fb: F[B])(f: (A, B) => C): F[C] = fb <*> fa.map(f.curried)
 
-  trait Monad[F[_]](using val applicative: Applicative[F]): 
-    def unit[A](a: A): F[A]
+  trait Monad[F[_]](using val applicative: Applicative[F]):
+    def unit[A](a: A): F[A] = applicative.pure(a)
     def bind[A, B](fa: F[A])(f: A => F[B]): F[B]
     extension [A](fa: F[A])
       def flatMap[B](f: A => F[B]): F[B] = bind(fa)(f)
@@ -34,6 +34,10 @@ object AFPLab2:
   trait Monoid[A]: 
     def mzero: A
     def mappend(a1: A, a2: A): A
+
+  trait MonoidBox[F[_]]:
+    def empty[A]: F[A]
+    def append[A](l: F[A])(r: F[A]): F[A]
       
   trait Foldable[F[_]]: 
     def foldMap[A, B](fa: F[A])(f: A => B)(using monoid: Monoid[B]): B
@@ -61,8 +65,6 @@ object AFPLab2:
 
       
     given Monad[Tree] with
-      override def unit[A](a: A): Tree[A] = Leaf(a)
-
       override def bind[A, B](fa: Tree[A])(f: A => Tree[B]): Tree[B] = fa match
         case Leaf(v)    => f(v)
         case Node(l, r) => Node(bind(l)(f), bind(r)(f))
@@ -70,6 +72,15 @@ object AFPLab2:
     given Monoid[String] with
       override def mappend(a1: String, a2: String): String = a1 + a2
       override def mzero: String = ""
+
+    given MonoidBox[List] with
+      def empty[A]: List[A] =
+        Nil
+      def append[A](l: List[A])(r: List[A]): List[A] =
+        l match
+          case h :: t => h :: append(t)(r) 
+          case Nil => r
+            
     given Foldable[Tree] with
       override def foldMap[A, B](fa: Tree[A])(f: A => B)(using monoid: Monoid[B]): B = fa match 
         case Leaf(v)    => f(v)
@@ -107,7 +118,6 @@ object AFPLab2:
             RoseNode(g(v), gs.zip(vs).map((gfs: RoseTree[A => B], vss: RoseTree[A]) => ap(vss)(gfs)))
 
     given Monad[RoseTree] with
-      override def unit[A](a: A): RoseTree[A] = RoseNode(a, Nil) 
       override def bind[A, B](fa: RoseTree[A])(f: A => RoseTree[B]): RoseTree[B] = fa match         
         case RoseLeaf => RoseLeaf
         case RoseNode(v1, vs1) => f(v1) match
@@ -149,3 +159,9 @@ object AFPLab2:
   println(s"Monad: ${r1.flatMap((i: Int) => RoseTree.RoseNode(i, List(RoseNode(i+i, Nil))))}")
   println(s"Foldable: ${RoseTree.given_Foldable_RoseTree.foldMap(r1)((i: Int) => s"${i*i} kljf lksj")}")
 
+
+  // MONOID BOX
+  import AFPLab2.Tree.given_MonoidBox_List.*
+  val y = List(1,2,3,4,5)
+  val z = List(6,7,8,9)
+  println("MONOIDBOX: " + append(y)(z))

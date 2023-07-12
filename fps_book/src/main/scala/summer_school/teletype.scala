@@ -16,33 +16,28 @@ object teletype extends IOApp.Simple:
 
     def getLine: TeleType[String] = Get((c: Char) => if c == '\n' then End(s"$c") else Put(c, getLine))
     
-    given Functor[TeleType] with 
-      extension [A](ta: TeleType[A]) 
-        def fmap[B](f: A => B): TeleType[B] = ta match
-          case End(a)     => End(f(a))
-          case Get(g)     => Get((c: Char) => g(c).fmap(f))
-          case Put(c, tn) => Put(c, tn.fmap(f)) 
+    given Functor[TeleType] with
+      override def fmap[A, B](fa: TeleType[A])(f: A => B): TeleType[B] = fa match  
+        case End(a)     => End(f(a))
+        case Get(g)     => Get((c: Char) => fmap(g(c))(f))
+        case Put(c, tn) => Put(c, fmap(tn)(f)) 
 
     given Applicative[TeleType] with
-      extension[A] (ta: TeleType[A])
-        def pure(a: A): TeleType[A] = End(a)
-        def <*>[B](tf: TeleType[A => B]): TeleType[B] = tf match
-          case Put(c, tn) => Put(c, ta <*> tn)
-          case Get(g)     => Get((c: Char) => ta <*> g(c))
-          case End(f)     => ta match
-            case End(v)       => End(f(v))
-            case Get(g)       => Get((c: Char) => g(c) <*> tf)
-            case Put(c2, tn2) => Put(c2, tn2 <*> tf) 
-
+      override def pure[A](a: A): TeleType[A] = End(a)
+      override def ap[A, B](fa: TeleType[A])(gf: TeleType[A => B]): TeleType[B] = gf match
+        case Put(c, tn) => Put(c, ap(fa)(tn))
+        case Get(g)     => Get((c: Char) => ap(fa)(g(c)))
+        case End(f)     => fa match
+          case End(v)       => End(f(v))
+          case Get(g)       => Get((c: Char) => ap(g(c))(gf))
+          case Put(c2, tn2) => Put(c2, ap(tn2)(gf)) 
+    
     given Monad[TeleType] with
-      extension[A] (ta: TeleType[A])
-        def unit(a: A): TeleType[A] = ta.pure(a)
-        def flatMap[B](f: A => TeleType[B]): TeleType[B] = ta match
-          case End(a)     => f(a)
-          case Get(g)     => Get((c: Char) => g(c).flatMap(f))
-          case Put(c, tn) => Put(c, tn.flatMap(f))
-        def map[B](f: A => B): TeleType[B] = ta.fmap(f)
-          
+      override def bind[A, B](fa: TeleType[A])(f: A => TeleType[B]): TeleType[B] = fa match
+        case End(a)     => f(a)
+        case Get(g)     => Get((c: Char) => bind(g(c))(f))
+        case Put(c, tn) => Put(c, bind(tn)(f))
+
           
     def getChar: TeleType[Char] = Get((c: Char) => End(c))
     def putChar(c: Char): TeleType[Unit] = Put(c, End(()))
