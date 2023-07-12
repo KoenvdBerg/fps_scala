@@ -5,18 +5,13 @@ import scala.annotation.tailrec
 /**
  * PART 01:
  *
- * Easy foldRight
+ * Easy foldLeft with an isConnected function
  *
  * PART 02:
  * 
- * 
- * (1) flooding algorithm to find outside air blocks that are reachable from -1,-1,-1
- *      - use set input blocks and if new block not in that set to determine if block is viable outside block
- * (2) result is surface connection to outside air blocks and input
- *
- * 
- *
- * Sort and then take 3 and sum
+ * Implemented a flooding algorithm to find outside air blocks that are reachable from -1,-1,-1. Then again a 
+ * foldLeft on the input to find the blocks from the input that are connected to the outside blocks only, thereby 
+ * skipping the blocks that are on the inside. 
  *
  */
 
