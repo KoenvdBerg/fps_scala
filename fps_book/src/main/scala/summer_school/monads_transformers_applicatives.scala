@@ -1,9 +1,5 @@
 package summer_school
 
-import summer_school.AFPLab2.RoseTree.{RoseLeaf, RoseNode}
-import summer_school.AFPLab2.Tree.{Leaf, Node}
-import summer_school.AFPLab2.{RoseTree, Tree}
-
 /**
  * Help can be found here: 
  * 
@@ -13,37 +9,37 @@ import summer_school.AFPLab2.{RoseTree, Tree}
  */
 
 
-
-
 object AFPLab2: 
   
   trait Functor[F[_]]: 
-    extension [A](fa: F[A]) 
-      def fmap[B](f: A => B): F[B]
     
-  trait Applicative[F[_]](using functor: Functor[F]):
-    def map[A, B](fa: F[A])(f: A => B): F[B] = fa.fmap(f)
+    def fmap[A, B](fa: F[A])(f: A => B): F[B]
     extension [A](fa: F[A]) 
-      def pure(a: A): F[A]
-      def <*>[B](gf: F[A => B]): F[B]
-      def map2[B, C](fb: F[B])(f: (A, B) => C): F[C] = fb <*> fa.fmap(f.curried)
-
-  trait Monad[F[_]](using App: Applicative[F]): 
+      def map[B](f: A => B): F[B] = fmap(fa)(f)
+    
+  trait Applicative[F[_]](using val functor: Functor[F]):
+    def pure[A](a: A): F[A]
+    def ap[A, B](fa: F[A])(gf: F[A => B]): F[B]
+    
     extension [A](fa: F[A])
-      def unit(a: A): F[A]
-      def flatMap[B](f: A => F[B]): F[B]
+      def <*>[B](gf: F[A => B]): F[B] = ap(fa)(gf)
+      def map2[B, C](fb: F[B])(f: (A, B) => C): F[C] = fb <*> fa.map(f.curried)
+
+  trait Monad[F[_]](using val applicative: Applicative[F]): 
+    def unit[A](a: A): F[A]
+    def bind[A, B](fa: F[A])(f: A => F[B]): F[B]
+    extension [A](fa: F[A])
+      def flatMap[B](f: A => F[B]): F[B] = bind(fa)(f)
       
   trait Monoid[A]: 
     def mzero: A
     def mappend(a1: A, a2: A): A
       
   trait Foldable[F[_]]: 
-    extension [A](fa: F[A])
-      def foldMap[B](m: Monoid[B])(f: A => B): B
+    def foldMap[A, B](fa: F[A])(f: A => B)(using monoid: Monoid[B]): B
       
-  trait Traversable[F[_]]:
-    extension [A](fa: F[A]) 
-      def traverse[G[_]: Applicative, B](f: A => G[B]): G[F[B]]
+  trait Traversable[F[_]](using val functor: Functor[F], val foldable: Foldable[F]):
+    def traverse[G[_], A, B](fa: F[A])(f: A => G[B])(using applicative: Applicative[G]): G[F[B]]
     
   enum Tree[+A]: 
     case Leaf(a: A)
@@ -52,105 +48,104 @@ object AFPLab2:
   object Tree: 
     
     given Functor[Tree] with
-      extension [A](fa: Tree[A])  
-        def fmap[B](f: A => B): Tree[B] = fa match
-          case Leaf(a)    => Leaf(f(a))
-          case Node(l, r) => Node(l.fmap(f), r.fmap(f))
+      override def fmap[A, B](fa: Tree[A])(f: A => B): Tree[B] = fa match
+        case Leaf(a) => Leaf(f(a))
+        case Node(l, r) => Node(fmap(l)(f), fmap(r)(f))
+
           
     given Applicative[Tree] with
-      extension [A](fa: Tree[A]) 
-        def pure(a: A): Tree[A] = Leaf(a)
-        def <*>[B](gf: Tree[A => B]): Tree[B] = gf match
-          case Leaf(f)    => fa.fmap(f)
-          case Node(l, r) => Node(fa <*> l, fa <*> r)
+      override def pure[A](a: A): Tree[A] = Leaf(a)
+      override def ap[A, B](fa: Tree[A])(gf: Tree[A => B]): Tree[B] = gf match
+        case Leaf(f) => fa.map(f)
+        case Node(l, r) => Node(ap(fa)(l), ap(fa)(r))
 
-    given Monad[Tree] with 
-      extension [A](fa: Tree[A])
-        def unit(a: A): Tree[A] = Leaf(a)
-        def flatMap[B](f: A => Tree[B]): Tree[B] = fa match
-          case Leaf(v)    => f(v)
-          case Node(l, r) => Node(l.flatMap(f), r.flatMap(f))
+      
+    given Monad[Tree] with
+      override def unit[A](a: A): Tree[A] = Leaf(a)
 
-    val stringMonoid: Monoid[String] = new Monoid[String]:
+      override def bind[A, B](fa: Tree[A])(f: A => Tree[B]): Tree[B] = fa match
+        case Leaf(v)    => f(v)
+        case Node(l, r) => Node(bind(l)(f), bind(r)(f))
+
+    given Monoid[String] with
       override def mappend(a1: String, a2: String): String = a1 + a2
       override def mzero: String = ""
-    given Foldable[Tree] with 
-      extension [A](fa: Tree[A])
-        def foldMap[B](m: Monoid[B])(f: A => B): B = fa match
-          case Leaf(v)    => f(v)
-          case Node(l, r) => m.mappend(l.foldMap(m)(f), r.foldMap(m)(f))
-    
-    // cannot find the reason why below doesn't compile
-    //given Traversable[Tree] with
-    //  extension [A](fa: Tree[A]) 
-    //    def traverse[G[_]: Applicative, B](f: A => G[B])(using g: Applicative[G]): G[Tree[B]] = fa match
-    //      case Leaf(v)    => f(v).fmap(Leaf.apply)
-    //      case Node(l, r) => Node(l.traverse(f), r.traverse(f))
-          
-        
-        
-    
+    given Foldable[Tree] with
+      override def foldMap[A, B](fa: Tree[A])(f: A => B)(using monoid: Monoid[B]): B = fa match 
+        case Leaf(v)    => f(v)
+        case Node(l, r) => monoid.mappend(foldMap(l)(f), foldMap(r)(f))
+
+    given Traversable[Tree] with
+      override def traverse[G[_], A, B](fa: Tree[A])(f: A => G[B])(using applicative: Applicative[G]): G[Tree[B]] = 
+        import applicative.functor.*
+        fa match
+          case Leaf(v)    => f(v).map(Leaf.apply[B])
+          case Node(l, r) => traverse(l)(f).map2(traverse(r)(f))((a, b) => Node(a, b))
+
+
+
+
   enum RoseTree[+A]: 
     case RoseNode(v: A, vs: List[RoseTree[A]])
     case RoseLeaf
-    
+
   object RoseTree: 
-    
-    given Functor[RoseTree] with 
-      extension [A](fa: RoseTree[A]) 
-        def fmap[B](f: A => B): RoseTree[B] = fa match
-          case RoseNode(v, vs) => RoseNode(f(v), vs.map(_.fmap(f)))
+
+    given Functor[RoseTree] with
+      override def fmap[A, B](fa: RoseTree[A])(f: A => B): RoseTree[B] = fa match
+        case RoseNode(v, vs) => RoseNode(f(v), vs.map((rt: RoseTree[A]) => fmap(rt)(f)))
+        case RoseLeaf => RoseLeaf
+
+    given Applicative[RoseTree] with
+      override def pure[A](a: A): RoseTree[A] = RoseNode(a, Nil)
+
+      override def ap[A, B](fa: RoseTree[A])(gf: RoseTree[A => B]): RoseTree[B] = gf match 
+        case RoseLeaf => RoseLeaf
+        case RoseNode(g, gs) => fa match
           case RoseLeaf => RoseLeaf
-          
-    given Applicative[RoseTree] with 
-      extension [A](fa: RoseTree[A]) 
-        def pure(a: A): RoseTree[A] = RoseNode(a, Nil)
-        def <*>[B](gf: RoseTree[A => B]): RoseTree[B] = gf match
-          case RoseLeaf => RoseLeaf
-          case RoseNode(g, gs) => fa match
-            case RoseLeaf => RoseLeaf
-            case RoseNode(v, vs) => 
-              RoseNode(g(v), gs.zip(vs).map((gfs: RoseTree[A => B], vss: RoseTree[A]) => vss <*> gfs))
+          case RoseNode(v, vs) =>
+            RoseNode(g(v), gs.zip(vs).map((gfs: RoseTree[A => B], vss: RoseTree[A]) => ap(vss)(gfs)))
 
     given Monad[RoseTree] with
-      extension [A](fa: RoseTree[A])
-        def unit(a: A): RoseTree[A] = RoseNode(a, Nil)
-        def flatMap[B](f: A => RoseTree[B]): RoseTree[B] = fa match
-          case RoseLeaf => RoseLeaf
-          case RoseNode(v1, vs1) => f(v1) match
-            case RoseLeaf          => RoseLeaf
-            case RoseNode(v2, vs2) => RoseNode(v2, vs2 ++ vs1.map(_.flatMap(f)))
-            
-    given Foldable[RoseTree] with
-      extension [A](fa: RoseTree[A])
-        def foldMap[B](m: Monoid[B])(f: A => B): B = fa match
-          case RoseLeaf => m.mzero
-          case RoseNode(v, vs) => m.mappend(f(v), 
-            vs.foldLeft(m.mzero)((b: B, rt: RoseTree[A]) => m.mappend(b, rt.foldMap(m)(f))))
+      override def unit[A](a: A): RoseTree[A] = RoseNode(a, Nil) 
+      override def bind[A, B](fa: RoseTree[A])(f: A => RoseTree[B]): RoseTree[B] = fa match         
+        case RoseLeaf => RoseLeaf
+        case RoseNode(v1, vs1) => f(v1) match
+          case RoseLeaf          => RoseLeaf
+          case RoseNode(v2, vs2) => RoseNode(v2, vs2 ++ vs1.map((rt: RoseTree[A]) => bind(rt)(f)))
 
-    
+    given Foldable[RoseTree] with
+      override def foldMap[A, B](fa: RoseTree[A])(f: A => B)(using monoid: Monoid[B]): B = fa match
+        case RoseLeaf => monoid.mzero
+        case RoseNode(v, vs) => monoid.mappend(f(v),
+          vs.foldLeft(monoid.mzero)((b: B, rt: RoseTree[A]) => monoid.mappend(b, foldMap(rt)(f))))
+
+
 @main def tree_data: Unit =
   import AFPLab2.RoseTree.*
   import AFPLab2.{RoseTree, Tree}
-  
+  import AFPLab2.Tree.*
+  import AFPLab2.Tree.given_Monoid_String
+
+  // TREE
   val t = Tree.Node(Tree.Leaf(1), Tree.Leaf(3))
   val g: Tree[Int => Int] = Tree.Leaf((i: Int) => i * i)
   println("######### TREE DATA ##########")
   println(s"The Tree is: $t")
-  println(s"Functor: ${t.fmap((i: Int) => (i + 10) * i)}")
+  println(s"Functor: ${t.map((i: Int) => (i + 10) * i)}")
   println(s"Applicative: ${t <*> g}")
   println(s"Monad: ${t.flatMap((i: Int) => Tree.Node(Tree.Leaf(i), Tree.Leaf(i*i)))}")
-  println(s"Foldable: ${t.foldMap(Tree.stringMonoid)((i: Int) => s"${i*i} and ")}")
-  
-  
-  
+  println(s"Foldable: ${Tree.given_Foldable_Tree.foldMap(t)((i: Int) => s"${i*i} and ")}")
+
+
+
   // ROSETREE
   val r1: RoseTree[Int] = RoseNode(4, List(RoseNode(3, List(RoseNode(6, Nil))), RoseNode(99, Nil)))
-  val rf: RoseTree[Int => Int] = r1.fmap((x: Int) => (i: Int) => (i + 10) * (x - 2))
+  val rf: RoseTree[Int => Int] = r1.map((x: Int) => (i: Int) => (i + 10) * (x - 2))
   println("\n######### ROSETREE DATA ##########")
   println(s"The RoseTree is: $r1")
-  println(s"Functor: ${r1.fmap((i: Int) => i * 2)}")
+  println(s"Functor: ${r1.map((i: Int) => i * 2)}")
   println(s"Applicative: ${r1 <*> rf}")
   println(s"Monad: ${r1.flatMap((i: Int) => RoseTree.RoseNode(i, List(RoseNode(i+i, Nil))))}")
-  println(s"Foldable: ${r1.foldMap(Tree.stringMonoid)((i: Int) => s"${i*i} kljf lksj")}")
+  println(s"Foldable: ${RoseTree.given_Foldable_RoseTree.foldMap(r1)((i: Int) => s"${i*i} kljf lksj")}")
 
