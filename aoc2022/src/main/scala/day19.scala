@@ -1,5 +1,7 @@
 import scala.io.*
 import aoc2022.VectorUtils.*
+import aoc2022.GameTree.DecisionTree.*
+import aoc2022.GameTree.DecisionTree
 import cats.data.State
 
 /**
@@ -43,55 +45,58 @@ object day19 extends App:
     def progress: MineState = copy(time = time + 1, wallet = wallet + bots)
     
   object MineState:
-    def sequence[A](fs: List[State[MineState, A]]): State[MineState, List[A]] = fs match
-      case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
-      case Nil => State.pure(Nil)
-
-    def mine: State[MineState, Vector[Int]] = State((s: MineState) => (s.progress, s.wallet))
-    def mine2(gainedBots: Vector[Int]): State[MineState, Vector[Int]] = State((s: MineState) => (s.copy(time = s.time + 1, wallet = s.wallet + s.bots - gainedBots), s.wallet))
-    def buy(cost: Vector[Vector[Int]], look: Int): State[MineState, Vector[Int]] =
-
-      def getOption(cost: Vector[Vector[Int]], s: MineState): Option[Int] =
-        cost
+    
+    
+//    def buyQ(s: MineState, cost: Vector[Vector[Int]]): List[MineState] =
+//      val options: List[Int] = cost
+//        .zipWithIndex
+//        .filter((c: Vector[Int], _: Int) => c <= s.wallet)
+//        .map(_._2)
+//        .toList
+//      val purchases: List[MineState] = options.map((i: Int) => s.copy(wallet = s.wallet - cost(i), bots = s.bots + Vector.fill(4)(0).updated(i, 1)))
+//      s :: purchases
+//    def mineQ(s: MineState): MineState = s.progress
+    
+    
+    def mineT(s: MineState): DecisionTree[MineState] = Decision(List(Result(s.progress)))
+    def progress(s: MineState, gainedBots: Vector[Int]): DecisionTree[MineState] = Decision(List(Result(s.copy(time = s.time + 1, wallet = s.wallet + s.bots - gainedBots))))
+    
+    def buyT(s: MineState, cost: Vector[Vector[Int]]): DecisionTree[MineState] =
+      if s.bots(0) > 4 || s.bots(1) > 5 || s.bots(2) > 4 then Decision(List(Result(s)))
+//      else if s.time > 10 && (s.bots(1) < 4 || s.bots(0) < 2) then Decision(Nil)
+      else 
+        val options: List[Int] = cost 
           .zipWithIndex
           .filter((c: Vector[Int], _: Int) => c <= s.wallet)
           .map(_._2)
-          .lastOption
+          .toList
+        // TODO: make sure to halt here by returning empty Tree if it's not plausable to have the best tree here
+        val purchases: List[MineState] = options.map((i: Int) => s.copy(wallet = s.wallet - cost(i), bots = s.bots + Vector.fill(4)(0).updated(i, 1)))
+        if s.time > 14 then Decision(purchases.map(Result.apply))
+        else Decision((s :: purchases).map(Result.apply))
+      
+    def roundT(s: MineState, cost: Vector[Vector[Int]]): DecisionTree[MineState] = for {
+      m <- buyT(s, cost)
+      x <- progress(m, m.bots - s.bots)
+    } yield x
 
-      for {
-        s <- State.get[MineState]
-        i1: Int = getOption(cost, s).getOrElse(-1)
-        i2: Int = getOption(cost, s.lookForward(look)).getOrElse(-1)
-        purchase <- if i2 > i1 then State.pure(s)         // waiting gives the opportunity to buy better bot
-                    else if i1 == -1 then State.pure(s)   // cannot buy anything so wait
-                    else State.pure(s.copy(wallet = s.wallet - cost(i1), bots = s.bots + Vector.fill(4) (0).updated(i1, 1)))
-        // d = println(purchase.bots - s.bots)
-        _ <- State.set(purchase)
-        // bots <- if purchase.bots == s.bots then State.pure(purchase.bots) else buy(cost)
-      } yield purchase.bots
-
-    def round(costs: Vector[Vector[Int]], look: Int): State[MineState, Vector[Int]] = for {
-      s <- State.get[MineState]
-      x = println(s"round: ${s.time}")
-      n <- buy(costs, look)
-      _ <- mine2(n - s.bots)
-    } yield n
-
-    def program(time: Int, costs: Vector[Vector[Int]], look: Int = 0): State[MineState, List[Int]] = for {
-      x <- sequence(List.fill(time)(round(costs, look)))
-    } yield x.map(_.sum)
+    def programT(start: MineState, time: Int, costs: Vector[Vector[Int]]): DecisionTree[MineState] = for {
+      x   <- roundT(start, costs)
+      fin <- if time <= 1 then Result(x) else programT(x, time-1, costs)
+    } yield fin
+  
 
   
   val cost1: Vector[Vector[Int]] = Vector(Vector(4, 0, 0, 0), Vector(2, 0, 0, 0), Vector(3, 14, 0, 0), Vector(2, 0, 7, 0))
   val cost2: Vector[Vector[Int]] = Vector(Vector(2, 0, 0, 0), Vector(3, 0, 0, 0), Vector(3, 8, 0, 0), Vector(3, 0, 12, 0))
   
-  
   private val start: MineState = MineState(0, Vector(0,0,0,0), Vector(1,0,0,0))
-  private val res1 = (0 until 3).map((l: Int) => input.map(c => MineState.program(24, c, l).run(start).value._1.wallet))
-  println(res1.transpose)
   
-//  private val answer1 = MineState.program(24, cost2).run(start).value._1
-//  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
+  //println(MineState.roundT(MineState(0, Vector(10,10,10,10), Vector(2,3,3,3)), cost1))
+  
+  val test = MineState.programT(start, 18,  cost1)
+  private val answer1 = DecisionTree.treeToList(test).maxBy(_.wallet(3))
+  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
