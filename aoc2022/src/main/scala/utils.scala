@@ -208,6 +208,12 @@ object Algorithms:
 
 
 object VectorUtils:
+  extension (c: Vector[Int])
+    def -(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v - that(i))
+    def +(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v + that(i))
+    def *(i: Int): Vector[Int] = c.map((v: Int) => v * i)
+    def >=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v >= that(i))
+    def <=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v <= that(i))
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
     def go(ass: Vector[A], acc: Vector[A] = Vector.empty, n: Int = 0): Vector[A] =
       if n + 1 == as.length then as(n) +: acc
@@ -231,3 +237,37 @@ object VectorUtils:
       val nbound = n % s.length // skipping the full rotation rounds
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
+
+object GameTree: 
+  enum DecisionTree[+A]:
+    case Result(value: A)
+    case Decision(ds: List[DecisionTree[A]])
+
+    def map[B](f: A => B): DecisionTree[B] = this match
+      case Result(v) => Result(f(v))
+      case Decision(ds) => Decision(ds.map((t: DecisionTree[A]) => t.map(f)))
+
+    def flatMap[B](f: A => DecisionTree[B]): DecisionTree[B] = this match
+      case Result(v) => f(v)
+      case Decision(ds) => Decision(ds.map(_.flatMap(f)))
+
+    def apply[B](gf: DecisionTree[A => B]): DecisionTree[B] = gf match
+      case Result(v) => this.map(v)
+      case Decision(ds) => this match
+        case Result(v) => Decision(ds.map((f: DecisionTree[A => B]) => this.apply(f)))
+        case Decision(vs) => Decision(ds.zip(vs).map((gs: DecisionTree[A => B], vss: DecisionTree[A]) => vss.apply(gs)))
+        
+    def map2[B, C](fb: DecisionTree[B])(f: (A, B) => C): DecisionTree[C] = fb.apply(this.map(f.curried))
+
+
+  object DecisionTree:
+  
+    def treeToList[A](dt: DecisionTree[A]): List[A] = dt match
+      case Result(v)    => List(v)
+      case Decision(vs) => vs.flatMap((d: DecisionTree[A]) => treeToList(d))
+      
+    def pure[A](a: A): DecisionTree[A] = Result(a)
+  
+    def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
+      case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
+      case Nil => Result(Nil)
