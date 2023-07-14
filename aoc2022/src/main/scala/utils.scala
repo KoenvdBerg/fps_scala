@@ -178,6 +178,19 @@ object Algorithms:
           go(res ++ neighbours, pred ++ preds)
 
       go(Map(source -> 0), Map.empty[N, N])
+      
+      
+      // Queue((x, 5), (x, 4))
+      // res = Map.empty
+      
+      // (1)
+      // Queue((x, 4))
+      // res = Map(x -> 5)
+      
+      // (2)
+      // Queue()
+      // res = Map(x -> 4) 
+      
 
     def shortestPath[N](g: Graph[N])(source: N, target: N): Option[List[N]] =
       val pred: Map[N, N] = dijkstra(g)(source)._2
