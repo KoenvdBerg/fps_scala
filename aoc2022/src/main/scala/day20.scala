@@ -5,6 +5,7 @@ import scala.annotation.tailrec
 import cats.data.State
 
 import scala.collection.immutable.Queue
+import scala.collection.mutable.ListBuffer
 
 /**
  * PART 01:
@@ -26,51 +27,43 @@ object day20 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input: Vector[Item] =
+  private val input: Vector[Int] =
     Source
       .fromResource(s"day$day.txt")
       .getLines
-      .zipWithIndex
-      .map((v: String, i: Int) => Item(v.toInt, i, i))
+      .map((v: String) => v.toInt)
       .toVector
 
-  case class Item(v: Int, startPos: Int, curPos: Int)
-  
-  
-  def mix(q: Queue[Int], len: Int, acc: Vector[Item]): Vector[Item] =
-    if q.isEmpty then acc
-    else 
-      val (n, rem): (Int, Queue[Int]) = q.dequeue
-      // 1 - move based on value i.e. add value to index
-      // 2 - other items with i > curPos and i < newPos have index - 1
-      val (t, other): (Vector[Item], Vector[Item]) = acc.partition((t: Item) => t.startPos == n)
-      val todo: Item = t.head
-      val np: Int = (todo.curPos + todo.v + len-1) % (len-1)
-      val newPos: Int = if np == 0 then len - 1 else np 
-      val newItem: Item = todo.copy(curPos = newPos)
-      val nextAcc: Vector[Item] = if newPos == todo.curPos then other
-      else if newPos > todo.curPos then other.map{
-        case Item(v, s, c) if c > todo.curPos && c <= newPos => Item(v, s, c - 1)
-        case x => x
-      }
-      else other.map{
-        case Item(v, s, c) if c >= newPos && c < todo.curPos => Item(v, s, c + 1)
-        case x => x
-      }
-      //println(s"val: ${todo.v} from ${todo.curPos} to ${newPos}")
-      //println(s"${(newItem +: nextAcc).sortBy(_.curPos).map(t => (t.v, t.curPos)).mkString(", ")}")
+  def getPos(idx: Int, n: Int, s: Int): Int =
+    val dir: Int = (idx + n) % s
+    if dir <= 0 then s + dir else dir
+    
+  def mix(in: Vector[Int]): Vector[Int] = 
+    
+    val size: Int = in.length - 1
+    val buffer = ListBuffer.from(in.zipWithIndex)
+    
+    @tailrec
+    def go(q: Queue[(Int, Int)]): Unit = 
+      if q.isEmpty then ()
+      else 
+        val (n, rem) = q.dequeue
+        val idx: Int = buffer.indexOf(n)
+        val elem: (Int, Int) = buffer(idx)
         
-      mix(rem, len, newItem +: nextAcc)
-
-  // TODO: obtain the grove coordinates 
+        buffer.remove(idx)
+        val np: Int = getPos(idx, elem._1, size)
+        buffer.insert(np, elem)
+        go(rem)
+        
+    go(Queue.from(in.zipWithIndex))
+    buffer.toVector.map(_._1)
+      
   
-  // not it: -649
-  
-  private val queue: Queue[Int] = Queue.from(input.indices)
-  private val res1: Vector[Item] = mix(queue, input.length, input)
-  private val zeroIndex: Int = res1.find(_.v == 0).get.curPos
+  private val res1: Vector[Int] = mix(input)
+  private val zeroIndex: Int = res1.indexWhere(_ == 0)
   private val indices: List[Int] = List(1000, 2000, 3000).map((i: Int) => (i + zeroIndex) % res1.length)
-  private val answer1 = indices.flatMap((i: Int) => res1.find(_.curPos == i)).map(_.v).sum
+  private val answer1 = indices.map((i: Int) => res1(i)).sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
