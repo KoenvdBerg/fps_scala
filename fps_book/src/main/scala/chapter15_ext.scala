@@ -1,4 +1,3 @@
-//import chapter13_A.IO
 import cats.effect.IO
 import chapter11.Monad
 import java.io.{BufferedReader, FileReader}

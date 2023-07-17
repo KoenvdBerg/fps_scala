@@ -1,11 +1,17 @@
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
+import aoc2022.FlatGrid.printFlatGrid
 
 /**
  * PART 01:
  *
+ * The difficulty was in adding two cycles for any addx program part. This is solved by appending to the list
+ * that tracks the program state twice. See implementation below. 
+ *
  * PART 02:
+ *
+ * Perfect puzzle to reuse my code for printing flatGrids. See code below. 
  *
  */
 
@@ -17,38 +23,57 @@ object day10 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input: List[String] =
+  private val input: List[Instruction] =
+
     Source
       .fromResource(s"day$day.txt")
       .getLines
       .toList
+      .map(Instruction.parser)
 
+  enum Instruction: 
+    case Noop
+    case Addx(value: Int)
+    
+  object Instruction:
 
-  def interpretProgram(s: String, c: Int, x: Int): List[(Int, Int)] =
-    if s.contains("noop") then List((c + 1, x + 0))
-    else
-      val value = s.split(" ").last.toInt
-      List((c + 1, x), (c + 2, x + value))
+    type Reg = Int
+    type Cycle = Int
+    type Image = String
+    
+    def parser(s: String): Instruction = s match
+      case s"noop" => Noop
+      case s"addx $i" => Addx(i.toInt)
+    
+    def readProgram(s: List[(Reg, Cycle)], instruction: Instruction): List[(Reg, Cycle)] =
+      val (x, cycle): (Reg, Cycle) = s.head
+      instruction match
+        case Noop        => (x, cycle + 1) :: s
+        case Addx(value) => (x + value, cycle + 2) :: (x, cycle + 1) :: s
+ 
+    def drawProgram(width: Int)(s: (Reg, Image), instruction: Instruction): (Reg, Image) =
 
-  def readAllProgram(s: List[String]): List[(Int, Int)] =
-    @tailrec
-    def loop(s: List[String], acc: List[(Int, Int)], c: Int, x: Int): List[(Int, Int)] = s match
-      case Nil => acc
-      case h :: tail =>
-        val res = interpretProgram(h, c, x)
-        loop(tail, acc ::: res, res.last.head, res.last.last)
+      def nextPixel(i: Int, regX: Int): Char = if i >= regX - 1 && i <= regX + 1 then '#' else '.'
 
-    loop(s, Nil, 1, 1)
+      val (x, image): (Reg, Image) = s
+      val pos: Int = image.length % width
+      instruction match
+        case Noop        => (x, image + nextPixel(pos, x))
+        case Addx(value) => (x + value, image + nextPixel(pos, x) + nextPixel(pos + 1, x))
 
-
-  val interesting: List[Int] = List(20, 60, 100, 140, 180, 220)
-  val res: List[(Int, Int)] = readAllProgram(input)
-  private val answer1: Int = interesting.map(i => res(i - 2)).map(x => x(0) * x(1)).sum
+  import Instruction.*
+  
+  private val interesting: List[Int] = (20 to 220 by 40).toList
+  private val res1: List[(Int, Int)] = input.foldLeft(List((1, 1)))(readProgram)
+  private val answer1: Int = res1
+    .filter((r: (Reg, Cycle)) => interesting.contains(r._2))
+    .map((r: (Reg, Cycle)) => r._1 * r._2)
+    .sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
-
 
   private val start2: Long =
     System.currentTimeMillis
 
-  val answer2 = None
-  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+  private val res2: (Int, String) = input.foldLeft((1, ""))(drawProgram(40))
+  println(printFlatGrid(res2._2, 40)(identity))
+  println(s"Answer day $day part 2: ^^^^^^^^^ [${System.currentTimeMillis - start2}ms]")
