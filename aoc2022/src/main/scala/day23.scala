@@ -25,6 +25,7 @@ object day23 extends App:
 
   private val start1: Long =
     System.currentTimeMillis
+    
   private val elves: Set[Point] =
     def parseElve(s: Char, x: Int, y: Int): Option[Point] =
       s match
@@ -68,6 +69,7 @@ object day23 extends App:
       )
       if togo.length == 4 then elve else togo.headOption.getOrElse(elve)  // if all surrounding spots are empty, elve doesn't move
       
+    @tailrec
     def simulate(nRounds: Int, elves: Set[Point], dirs: Vector[Direction]): Set[Point] =
       if nRounds <= 0 then elves
       else 
@@ -75,6 +77,7 @@ object day23 extends App:
         val next = toMove.foldLeft(elves)((op: Set[Point], in: (Point, Point)) => (op - in._1) + in._2)
         simulate(nRounds - 1, next, rotateVector(1, dirs))
 
+    @tailrec
     def simulateTillEnd(nRounds: Int, elves: Set[Point], dirs: Vector[Direction]): Int =
       if nRounds % 100 == 0 then println(s"round $nRounds")
       val toMove: Map[Point, Point] = getMoves(elves, dirs)
