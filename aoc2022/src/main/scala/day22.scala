@@ -7,23 +7,31 @@ import day22.Step.*
 /**
  * PART 01:
  *
- * Easy foldRight
+ * This part was relatively straightforward to solve, because wrapping around the playing field meant warping to the 
+ * other side depending on the direction. The parsing of the instruction string somehow was difficult for me.  
  *
  * PART 02:
  *
- * Sort and then take 3 and sum
+ * I created the drawing below for my input for how to warp the player when it moves across the cube, solved for 2d 
+ * coordinates. I started with x-y bounds in the wrapCube() function, but saw a tip for using /50. See code below. 
  * 
- * IDEA:
  * 
- * parsing strat:
- * use Point
- * There are three tiles: Walk, Walls
+ *            G     H
+ *          ┌────┬────┐
+ *         F│    │    │C
+ *          │    │    │
+ *          ├────┼────┘
+ *         E│    │  A
+ *       E  │    │A
+ *     ┌────┼────┤
+ *    F│    │    │C
+ *     │    │    │
+ *     ├────┼────┘
+ *    G│    │ B
+ *     │    │B
+ *     └────┘
+ *       H
  * 
- * solving strat:
- * make function that executes a command.
- * 
- * result should be foldleft over the commands
- *
  */
 
 
@@ -89,53 +97,72 @@ object day22 extends App:
         case Point(0, -1) => 3
       facing + (loc.y + 1) * 1000 + (loc.x + 1) * 4
         
-    
     def turn(step: Step): Player = step match
       case Left    => copy(dir = Point(dir.y, -dir.x))
       case Right   => copy(dir = Point(-dir.y, dir.x))
       case Move(_) => this  // don't turn
       
-    def move(tiles: Set[Point], walls: Set[Point], amount: Int): Player = 
-      
-      val all: Set[Point] = tiles ++ walls
-      
-      def go(n: Int, acc: Point): Point =
-        //println(s"curPos: $acc, with dir: $dir")
-        if n <= 0 then acc
-        else 
-          val nextLoc: Point = acc + dir
-          if walls(nextLoc) then acc
-          else if tiles(nextLoc) then go(n-1, nextLoc)
-          else
-            val wrapLoc: Point = dir match
-              case Point(1, 0)  => all.filter(_.y == nextLoc.y).toVector.minBy(_.x)
-              case Point(-1, 0) => all.filter(_.y == nextLoc.y).toVector.maxBy(_.x)
-              case Point(0, 1)  => all.filter(_.x == nextLoc.x).toVector.minBy(_.y)
-              case Point(0, -1) => all.filter(_.x == nextLoc.x).toVector.maxBy(_.y)
-            //println(wrapLoc)
-            if tiles(wrapLoc) then go(n-1, wrapLoc)
-            else acc
-      copy(loc = go(amount, loc))
+    def move: Player = copy(loc = loc + dir)
+    
+    def wrapNormal(allObs: Set[Point]): Player = 
+      val newLoc: Point = dir match
+        case Point(1, 0) => allObs.filter(_.y == loc.y).toVector.minBy(_.x)
+        case Point(-1, 0) => allObs.filter(_.y == loc.y).toVector.maxBy(_.x)
+        case Point(0, 1) => allObs.filter(_.x == loc.x).toVector.minBy(_.y)
+        case Point(0, -1) => allObs.filter(_.x == loc.x).toVector.maxBy(_.y)
+      copy(loc = newLoc)
+    
+    def wrapCube: Player =
+      val l = this.loc
+      (this.dir, l.x / 50, l.y / 50) match
+        case (Point(0, -1), 1, 0)  => Player(Point(0, l.x + 100), Point(1, 0))     // G
+        case (Point(-1, 0), 1, 0)  => Player(Point(0, 149 - l.y), Point(1, 0))     // F 
+        case (Point(0, -1), 2, 0)  => Player(Point(l.x - 100, 199), Point(0, -1))  // H
+        case (Point(1, 0),  2, 0)  => Player(Point(99, 149 - l.y), Point(-1, 0))   // C
+        case (Point(0, 1),  2, 0)  => Player(Point(99 , l.x - 50), Point(-1, 0))   // A
+        case (Point(1, 0),  1, 1)  => Player(Point(l.y + 50 , 49), Point(0, -1))   // A
+        case (Point(-1, 0), 1, 1)  => Player(Point(l.y - 50, 100), Point(0, 1))    // E 
+        case (Point(0, -1), 0, 2)  => Player(Point(50, l.x + 50), Point(1, 0))     // E 
+        case (Point(-1, 0), 0, 2)  => Player(Point(50, 149 - l.y), Point(1, 0))    // F 
+        case (Point(1, 0),  1, 2)  => Player(Point(149, 149 - l.y), Point(-1, 0))  // C
+        case (Point(0, 1),  1, 2)  => Player(Point(49, l.x + 100), Point(-1, 0))   // B
+        case (Point(1, 0),  0, 3)  => Player(Point(l.y - 100, 149), Point(0, -1))  // B
+        case (Point(0, 1),  0, 3)  => Player(Point(l.x + 100, 0), Point(0, 1))     // H
+        case (Point(-1, 0), 0, 3)  => Player(Point(l.y - 100, 0), Point(0, 1))     // G
+        case _ => sys.error("cannot wrap around")
         
   object Player:
+    val all: Set[Point] = tiles ++ walls
     
-    def performStep(player: Player, step: Step): Player = step match
-      case Move(n) => player.move(tiles, walls, n)
-      case turn    => 
-        println(s"turning: $turn")
-        player.turn(turn)
+    def moveN(amount: Int, part: Int, p: Player): Player =
+
+      def go(n: Int, acc: Player): Player =
+        if n <= 0 then acc
+        else
+          val next: Player = acc.move
+          if walls(next.loc) then acc
+          else if tiles(next.loc) then go(n-1, next)
+          else  // out of bounds, needs wrapping
+            val wrapped: Player = if part == 1 then acc.wrapNormal(all) else acc.wrapCube
+            if tiles(wrapped.loc) then go(n-1, wrapped)
+            else acc
+
+      go(amount, p)
+      
+    def performStep(part: Int)(player: Player, step: Step): Player = step match
+      case Move(n) => moveN(n, part, player)
+      case turn    => player.turn(turn)
         
   
   private val startLoc: Point = tiles.minBy(_.toTuple.swap)
-  private val res1: Player = steps.foldLeft(Player(startLoc, Point(1,0)))(Player.performStep)
+  private val res1: Player = steps.foldLeft(Player(startLoc, Point(1,0)))(Player.performStep(1))
   private val answer1 = res1.score
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
 
   private val start2: Long =
     System.currentTimeMillis
-    
-  val cubeL: Int = 50
-
-  private val answer2 = None
+  
+  private val res2: Player = steps.foldLeft(Player(startLoc, Point(1,0)))(Player.performStep(2))
+  private val answer2 = res2.score
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
