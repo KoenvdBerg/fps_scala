@@ -89,13 +89,12 @@ object Grid2D:
 
   
   case class Line(delta: Int, b: Int):
-    def fx: Int => Int = (x: Int) => delta * x + b
-    def fy: Int => Int = (y: Int) => (y - b) / delta
+    val fx: Int => Int = (x: Int) => delta * x + b
+    val fy: Int => Int = (y: Int) => (y - b) / delta
     def fyBounded(min: Int, max: Int): Int => Option[Int] = 
       (y: Int) => 
         val x: Int = fy(y)
-        if x < min || x > max then None else Some(x)
-        
+        Option.when(x >= min && x <= max)(x)
 
     def intersect(that: Line): Option[Point] =
       if delta == that.delta then None // parallel (identical) lines no intersection possible

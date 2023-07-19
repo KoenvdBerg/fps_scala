@@ -126,7 +126,7 @@ object day15 extends App:
       case s"Sensor at x=$x, y=$y: closest beacon is at x=$bx, y=$by" => 
         val sensor: Point = Point(x.toInt, y.toInt)
         val beacon: Point = Point(bx.toInt, by.toInt)
-        Sensor(sensor, beacon, sensor.manhattan(beacon))
+        Sensor(sensor, beacon)
       case _ => sys.error(s"Couldn't parse sensor: $s")
     
     Source
@@ -135,7 +135,8 @@ object day15 extends App:
       .map(parseSensor)
       .toVector
     
-  case class Sensor(loc: Point, beacon: Point, innerDist: Int)
+  case class Sensor(loc: Point, beacon: Point):
+    val innerDist: Int = loc.manhattan(beacon)
   
   extension (p: Point) 
     def manhattan(that: Point): Int = math.abs(p.x - that.x) + math.abs(p.y -  that.y)
