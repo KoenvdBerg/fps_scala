@@ -29,20 +29,23 @@ object day16 extends App:
     System.currentTimeMillis
 
   private val (routes, valves): (Map[String, List[String]], Map[String, Int]) =
+
+    case class Route(from: String, to: List[String])
+    case class Valve(loc: String, rate: Int)
   
-    def parse(s: String): ((String, Int), (String, List[String])) = s match
-      case s"Valve $valve has flow rate=$rate; tunnels lead to valves $routes" => ((valve, rate.toInt), (valve, routes.split(',').map(_.trim).toList)) 
-      case s"Valve $valve has flow rate=$rate; tunnel leads to valve $route"   => ((valve, rate.toInt), (valve, List(route)))
+    def parse(s: String): (Valve, Route) = s match
+      case s"Valve $valve has flow rate=$rate; tunnels lead to valves $routes" => (Valve(valve, rate.toInt), Route(valve, routes.split(',').map(_.trim).toList))
+      case s"Valve $valve has flow rate=$rate; tunnel leads to valve $route"   => (Valve(valve, rate.toInt), Route(valve, List(route)))
       case _ => sys.error(s"couldn't parse valve string: $s")
 
-    val infile: List[((String, Int), (String, List[String]))] = Source
+    val infile: List[(Valve, Route)] = Source
       .fromResource(s"day$day.txt")
       .getLines
       .toList
       .map(parse)
 
-    val routes: Map[String, List[String]] = infile.map(_._2).toMap
-    val valves: Map[String, Int] = infile.map(_._1).toMap
+    val routes: Map[String, List[String]] = infile.map((_, r) => (r.from, r.to)).toMap
+    val valves: Map[String, Int] = infile.map((v, _) => (v.loc, v.rate)).toMap
     (routes, valves)
 
   case class Node(loc: String, time: Int, cumScore: Int, open: Set[String]):
