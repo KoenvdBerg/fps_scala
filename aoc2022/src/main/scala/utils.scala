@@ -15,6 +15,15 @@ object Grid2D:
         Point(x, y + 1)
       )
 
+    def adjacentInclusive: Set[Point] =
+      Set(
+        Point(x, y - 1),
+        Point(x - 1, y),
+        Point(x + 1, y),
+        Point(x, y + 1),
+        Point(x, y)
+      )
+
     def adjacentDown: Set[Point] = Set(Point(x, y + 1))
 
     def adjacentSides(dir: String): Set[Point] = dir match
@@ -39,7 +48,7 @@ object Grid2D:
       if sm.head == that then sm.reverse else sm
 
     def bfsSearch(targets: Vector[Point], obstacles: Vector[Point]): LazyList[Vector[Point]] =
-      import Algorithms.BFS.bfs
+      import Algorithms.bfs
       val seen: mutable.Set[Point] = obstacles.to(mutable.Set)
 
       def search: Vector[Point] => LazyList[Vector[Point]] =
@@ -107,64 +116,20 @@ object FlatGrid:
 
 object Algorithms:
 
-  object BFS:
-    import scala.collection.immutable.Queue
+  // Breath first search algorithm, generalized with early exit condition
+  // Inspired from: https://stackoverflow.com/questions/41347337/how-to-implement-breadth-first-search-in-scala-with-fp
+  @tailrec
+  final def bfs[A](queue: LazyList[A])(f: A => LazyList[A], exit: A => Boolean): LazyList[A] =
+    if queue.isEmpty then queue
+    else if exit(queue.head) then queue
+    else bfs(queue.tail ++ f(queue.head))(f, exit)
 
-    type Path[N] = N => Set[N]
+  @tailrec
+  def bfsPriority[A](queue: LazyList[A])(f: A => LazyList[A], exit: A => Boolean): LazyList[A] =
+    if queue.isEmpty then queue
+    else if exit(queue.head) then queue
+    else bfsPriority(f(queue.head) ++ queue.tail)(f, exit)
 
-    final def bfs[N](path: Path[N])(source: N, exit: N => Boolean): Map[N, N] =
-
-
-      // TODO: remove pred, add Int to queue
-      // TODO: return Option[Int]
-      @tailrec
-      def go(active: Queue[N], seen: Set[N], pred: Map[N, N]): Map[N, N] =
-        if active.isEmpty then pred
-        else
-          val (node, rem): (N, Queue[N]) = active.dequeue
-          val neighbours: Set[N] = for {
-            next <- path(node)
-            if !seen(next)  // filter out nodes already been to
-          } yield next
-          val nextQueue: Queue[N] = rem.enqueueAll(neighbours)
-          val preds: Map[N, N] = neighbours.map((f: N) => (f, node)).toMap
-          if neighbours.nonEmpty && neighbours.exists(exit) then pred ++ preds  // early exit
-          else go(nextQueue, seen + node, pred ++ preds)
-
-      go(Queue(source), Set.empty[N], Map.empty[N, N])
-
-    def shortestPath[N](p: Path[N])(source: N, exit: N => Boolean): Option[List[N]] =
-      if exit(source) then Some(List(source))
-      else
-        val pred: Map[N, N] = bfs(p)(source, exit)
-        val target: Option[N] = pred.keys.find(exit)
-        target.map((n: N) => iterateRight(n)(pred.get))
-
-    def iterateRight[N](x: N)(f: N => Option[N]): List[N] =
-
-      @tailrec
-      def go(xx: N, acc: List[N]): List[N] = f(xx) match
-        case None => xx :: acc
-        case Some(v) => go(v, xx :: acc)
-
-      go(x, List.empty[N])
-
-
-
-    // Breath first search algorithm, generalized with early exit condition
-    // Inspired from: https://stackoverflow.com/questions/41347337/how-to-implement-breadth-first-search-in-scala-with-fp
-    @tailrec
-    final def bfs[A](queue: LazyList[A])(f: A => LazyList[A], exit: A => Boolean): LazyList[A] =
-      if queue.isEmpty then queue
-      else if exit(queue.head) then queue
-      else bfs(queue.tail ++ f(queue.head))(f, exit)
-
-    @tailrec
-    def bfsPriority[A](queue: LazyList[A])(f: A => LazyList[A], exit: A => Boolean): LazyList[A] =
-      if queue.isEmpty then queue
-      else if exit(queue.head) then queue
-      else bfsPriority(f(queue.head) ++ queue.tail)(f, exit)
-  end BFS
 
   def lineSearch[A](as: Vector[A], start: A, initStep: Int)(f: (A, Vector[A]) => Int): A =
 
