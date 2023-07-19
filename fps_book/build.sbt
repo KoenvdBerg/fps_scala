@@ -9,6 +9,8 @@ lazy val root = (project in file("."))
 
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.17.0"
+libraryDependencies += "com.lihaoyi" %% "pprint" % "0.8.1"
+libraryDependencies += "org.typelevel" %% "cats-effect" % "3.5.0"
 
 ThisBuild / scalacOptions ++= Seq(
   "-unchecked",
