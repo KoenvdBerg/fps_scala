@@ -4,6 +4,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.matching.Regex
 
+
+
 object Grid2D:
 
   case class Point(x: Int, y: Int):
@@ -55,7 +57,6 @@ object Grid2D:
 
       bfs(LazyList(Vector(this)))(search, earlyExit)
 
-
   object Point:
 
     def convertToFlatGrid[A](grid: Vector[Point], makeTo: Point => A): (Int, IndexedSeq[A]) = 
@@ -104,6 +105,27 @@ object FlatGrid:
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
 
+
+  
+  case class Line(delta: Int, b: Int):
+    val fx: Int => Int = (x: Int) => delta * x + b
+    val fy: Int => Int = (y: Int) => (y - b) / delta
+    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
+      (y: Int) => 
+        val x: Int = fy(y)
+        Option.when(x >= min && x <= max)(x)
+
+    def intersect(that: Line): Option[Point] =
+      if delta == that.delta then None // parallel (identical) lines no intersection possible
+      else
+        val x = (that.b - b) / (delta - that.delta)
+        Some(Point(x, fx(x)))
+
+  object Line:
+    def makeLine(p1: Point, p2: Point): Line =
+      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
+      val b: Int = p1.y - (delta * p1.x)
+      Line(delta, b)
 
 object FlatGrid:
 
