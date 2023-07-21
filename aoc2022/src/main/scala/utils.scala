@@ -33,7 +33,7 @@ object Grid2D:
 
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
-    def smear(that: Point): Vector[Point] =
+    def smear(that: Point): Vector[Point] = 
       val sm: Vector[Point] = for {
         xs <- Range(x.min(that.x), that.x.max(x) + 1).toVector
         ys <- Range(y.min(that.y), that.y.max(y) + 1).toVector
@@ -59,33 +59,52 @@ object Grid2D:
 
   object Point:
 
-    def convertToFlatGrid[A](grid: Vector[Point], makeTo: A, default: A): (Vector[A], Int) =
-      val minX: Point = grid.minBy(_.x)
-      val minY: Point = grid.minBy(_.y)
-      val normalized: Vector[Point] = grid.map((f: Point) => Point(f.x + -minX.x, f.y + -minY.y)).distinct.sortBy(_.toTuple.swap)
-      val rowSize: Int = normalized.maxBy(_.x).x
+    def convertToFlatGrid[A](grid: Vector[Point], makeTo: Point => A): (Int, IndexedSeq[A]) = 
+      val width: Int = grid.maxBy(_.x).x - grid.minBy(_.x).x + 1
+      val allPoints: Vector[Point] = Point(grid.minBy(_.x).x, grid.minBy(_.y).y)
+        .smear(Point(grid.maxBy(_.x).x, grid.maxBy(_.y).y))
+        .sortBy(_.toTuple.swap)
+      val flat: IndexedSeq[A] = allPoints.map(makeTo)
+      (width, flat)
+      
+    def gridPrintable(grid: Vector[Point])(f: Point => Char): String =
+      val (width, flat) = convertToFlatGrid(grid, f)
+      flat.mkString("").grouped(width).mkString("\n")
+      
 
-      def go(in: Vector[Point], n: Int = 0, acc: Vector[A] = Vector.empty): Vector[A] = in match
-        case h +: t =>
-          val loc: Int = FlatGrid.pointToIndex(h.x, h.y, rowSize)
-          if n == loc then go(t, n+1, makeTo +: acc)
-          else go(in, n+1, default +: acc)
-        case _      => acc
+object FlatGrid:
 
-      (go(normalized), rowSize)
+  /**
+   * Takes the 4 neighbors non-diagonally from the target position i.e. left, right, above and below
+   */
+  def neighbours4(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
+    val left: Int = if i % rowSize != 0 then i - 1 else -1
+    val right: Int = if (i + 1) % rowSize != 0 then i + 1 else -1
+    val vertical: Vector[Int] = Vector(i - rowSize, i + rowSize)
+    (Vector(right, left) ++ vertical)
+      .filter((pos: Int) => pos >= 0 && pos < nTiles && pos != i)
 
-    def print2dGrid(obstacles: Vector[(Point, Char)], default: Char = '.'): Unit =
-      val xMax: Int = obstacles.maxBy(_._1.x)._1.x
 
-      def go(obs: Vector[(Point, Char)], x: Int = 0, y: Int = 0): Unit = obs match
-        case ob +: t =>
-          if x == xMax + 1 then {println(); go(obs, 0, y + 1)}
-          else if x == ob._1.x && y == ob._1.y then {print(ob._2); go(t, x + 1, y)}
-          else {print(default); go(obs, x + 1, y)}
-        case Vector() => println()
-        case _ => sys.error("print2dGrid ERROR")
+  def neighbours8(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
+    def sides(pos: Int): Vector[Int] =
+      val left: Int = if pos % rowSize != 0 then pos - 1 else -1
+      val right: Int = if (pos + 1) % rowSize != 0 then pos + 1 else -1
+      Vector(left, pos, right)
 
-      go(obstacles.sortBy(_._1.toTuple.swap).distinct)
+    def get(pos: Int): Vector[Int] =
+      val vertical: Vector[Int] = Vector(pos - rowSize, pos, pos + rowSize)
+      vertical
+        .flatMap(sides)
+        .filter(i => i >= 0 && i < nTiles && i != pos)
+
+    get(i)
+
+  def pointToIndex(x: Int, y: Int, rowSize: Int): Int =
+    y * rowSize + x
+
+  def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
+    grid.map(f).mkString("").grouped(width).mkString("\n")
+
 
   
   case class Line(delta: Int, b: Int):
@@ -237,6 +256,12 @@ object Algorithms:
 
 
 object VectorUtils:
+  extension (c: Vector[Int])
+    def -(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v - that(i))
+    def +(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v + that(i))
+    def *(i: Int): Vector[Int] = c.map((v: Int) => v * i)
+    def >=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v >= that(i))
+    def <=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v <= that(i))
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
     def go(ass: Vector[A], acc: Vector[A] = Vector.empty, n: Int = 0): Vector[A] =
       if n + 1 == as.length then as(n) +: acc
@@ -260,3 +285,37 @@ object VectorUtils:
       val nbound = n % s.length // skipping the full rotation rounds
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
+
+object GameTree: 
+  enum DecisionTree[+A]:
+    case Result(value: A)
+    case Decision(ds: List[DecisionTree[A]])
+
+    def map[B](f: A => B): DecisionTree[B] = this match
+      case Result(v) => Result(f(v))
+      case Decision(ds) => Decision(ds.map((t: DecisionTree[A]) => t.map(f)))
+
+    def flatMap[B](f: A => DecisionTree[B]): DecisionTree[B] = this match
+      case Result(v) => f(v)
+      case Decision(ds) => Decision(ds.map(_.flatMap(f)))
+
+    def apply[B](gf: DecisionTree[A => B]): DecisionTree[B] = gf match
+      case Result(v) => this.map(v)
+      case Decision(ds) => this match
+        case Result(v) => Decision(ds.map((f: DecisionTree[A => B]) => this.apply(f)))
+        case Decision(vs) => Decision(ds.zip(vs).map((gs: DecisionTree[A => B], vss: DecisionTree[A]) => vss.apply(gs)))
+        
+    def map2[B, C](fb: DecisionTree[B])(f: (A, B) => C): DecisionTree[C] = fb.apply(this.map(f.curried))
+
+
+  object DecisionTree:
+  
+    def treeToList[A](dt: DecisionTree[A]): List[A] = dt match
+      case Result(v)    => List(v)
+      case Decision(vs) => vs.flatMap((d: DecisionTree[A]) => treeToList(d))
+      
+    def pure[A](a: A): DecisionTree[A] = Result(a)
+  
+    def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
+      case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
+      case Nil => Result(Nil)

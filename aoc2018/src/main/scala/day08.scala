@@ -1,7 +1,8 @@
 import scala.io.*
 import math.*
 import scala.collection.mutable
-import scala.collection.mutable.Stack
+import aoc2018.Combinator.Parser
+import aoc2018.Combinator.Parser.*
 
 /**
  *
@@ -29,52 +30,62 @@ object day08 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input: Seq[Int] =
+  private val input: String =
     Source
       .fromResource(s"day$day.txt")
       .getLines
-      .toList
-      .head.split(" ")
-      .map(_.toInt)
+      .toIndexedSeq.head + " "
 
-  case class Tree(stub: Seq[Tree], meta: Seq[Int]):
-    def metaToSeq: Seq[Int] =
-      this.meta ++ this.stub.flatMap(tt => tt.metaToSeq)
+  case class Tree(nodes: IndexedSeq[Tree], metaData: IndexedSeq[Int]):
+    def allMeta: IndexedSeq[Int] =
+      this.metaData ++ this.nodes.flatMap(tt => tt.allMeta)
     def treeRootValues: Seq[Int] =
-      val viableSubNodes: Seq[Int] = this.meta.filter(e => e <= this.stub.length & e != 0)
-      if this.stub.isEmpty then this.meta
+      val viableSubNodes: Seq[Int] = this.metaData.filter(e => e <= this.nodes.length & e != 0)
+      if this.nodes.isEmpty then this.metaData
       else if viableSubNodes.isEmpty then Seq(0)
-      else viableSubNodes.flatMap(i => this.stub(i - 1).treeRootValues)
+      else viableSubNodes.flatMap(i => this.nodes(i - 1).treeRootValues)
 
+  object Tree:
+    val entry: Parser[Int] = for {e <- Parser.int; _ <- Parser.string(" ")} yield e
+    val header: Parser[(Int, Int)] = entry ** entry
+    def meta(amount: Int): Parser[List[Int]] = Parser.listOfN(amount, entry)
 
-  object Tree {
-    def treeFromHeader(h: Seq[Int]): Tree =
+    // TODO: Perhaps this can be made more performant using a State[Int, IndexedSeq[Int]] Monad
+    val parseTree: Parser[Tree] = for {
+        head <- header
+        nodes <- Parser.listOfN(head._1, parseTree).map(_.toIndexedSeq)
+        entries <- meta(head._2).map(_.toIndexedSeq)
+      } yield Tree(nodes, entries)
+
+    def treeFromHeader(h: IndexedSeq[Int]): Tree =
 
       val mutableSeq: mutable.Stack[Int] = h.to(mutable.Stack)
 
       def parseHeader(s: mutable.Stack[Int]): Tree =
         val c: Int = s.pop
         val e: Int = s.pop
-        val children: Seq[Tree] = for {
+        val children: IndexedSeq[Tree] = for {
           _ <- Range(0, c)
         } yield parseHeader(s)
-        val meta: Seq[Int] = for {
+        val meta: IndexedSeq[Int] = for {
           _ <- Range(0, e)
         } yield s.pop
         Tree(children, meta)
 
       parseHeader(mutableSeq)
-  }
 
+  //private val res1: Tree = Tree.parseTree.run(input) match
+  //  case Right(t) => t
+  //  case Left(e)  => sys.error(e)
 
-  private val res1 = Tree.treeFromHeader(input)
-  private val answer1 = res1.metaToSeq.sum
+  private val res1: Tree = Tree.treeFromHeader(input.split(" ").map(_.toInt))
+  private val answer1 = res1.allMeta.sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
-
 
   private val start2: Long =
     System.currentTimeMillis
 
-
   private val answer2 = res1.treeRootValues.sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+
+
