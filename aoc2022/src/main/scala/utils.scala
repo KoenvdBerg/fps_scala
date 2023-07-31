@@ -33,7 +33,8 @@ object Grid2D:
 
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
-    def smear(that: Point): Vector[Point] = 
+
+    def smear(that: Point): Vector[Point] =
       val sm: Vector[Point] = for {
         xs <- Range(x.min(that.x), that.x.max(x) + 1).toVector
         ys <- Range(y.min(that.y), that.y.max(y) + 1).toVector
@@ -58,19 +59,17 @@ object Grid2D:
       bfs(LazyList(Vector(this)))(search, earlyExit)
 
   object Point:
-
-    def convertToFlatGrid[A](grid: Vector[Point], makeTo: Point => A): (Int, IndexedSeq[A]) = 
+    def convertToFlatGrid[A](grid: Vector[Point], makeTo: Point => A): (Int, IndexedSeq[A]) =
       val width: Int = grid.maxBy(_.x).x - grid.minBy(_.x).x + 1
       val allPoints: Vector[Point] = Point(grid.minBy(_.x).x, grid.minBy(_.y).y)
         .smear(Point(grid.maxBy(_.x).x, grid.maxBy(_.y).y))
         .sortBy(_.toTuple.swap)
       val flat: IndexedSeq[A] = allPoints.map(makeTo)
       (width, flat)
-      
+
     def gridPrintable(grid: Vector[Point])(f: Point => Char): String =
       val (width, flat) = convertToFlatGrid(grid, f)
-      flat.mkString("").grouped(width).mkString("\n")
-      
+      flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
 object FlatGrid:
 
@@ -126,47 +125,6 @@ object FlatGrid:
       val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
       val b: Int = p1.y - (delta * p1.x)
       Line(delta, b)
-
-object FlatGrid:
-
-  /**
-   * Takes the 4 neighbors non-diagonally from the target position i.e. left, right, above and below
-   */
-  def neighbours4(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
-    val left: Int = if i % rowSize != 0 then i - 1 else -1
-    val right: Int = if (i + 1) % rowSize != 0 then i + 1 else -1
-    val vertical: Vector[Int] = Vector(i - rowSize, i + rowSize)
-    (Vector(right, left) ++ vertical)
-      .filter((pos: Int) => pos >= 0 && pos < nTiles && pos != i)
-
-
-  def neighbours8(i: Int, rowSize: Int, nTiles: Int): Vector[Int] =
-    def sides(pos: Int): Vector[Int] =
-      val left: Int = if pos % rowSize != 0 then pos - 1 else -1
-      val right: Int = if (pos + 1) % rowSize != 0 then pos + 1 else -1
-      Vector(left, pos, right)
-
-    def get(pos: Int): Vector[Int] =
-      val vertical: Vector[Int] = Vector(pos - rowSize, pos, pos + rowSize)
-      vertical
-        .flatMap(sides)
-        .filter(i => i >= 0 && i < nTiles && i != pos)
-
-    get(i)
-
-  def pointToIndex(x: Int, y: Int, rowSize: Int): Int =
-    y * rowSize + x
-
-  def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
-    def go(g: IndexedSeq[A], acc: String): String =
-      if g.isEmpty then acc
-      else
-        val (head, next): (IndexedSeq[A], IndexedSeq[A]) = g.splitAt(width)
-        val toPrint: String = head.map(f).mkString("") + "\n"
-        go(next, acc + toPrint)
-
-    go(grid, "")
-
 
 object Algorithms:
 
@@ -278,13 +236,60 @@ object VectorUtils:
 
     as.splitAt(go(0))
 
-
+  
   def rotateVector[A](n: Int, s: Vector[A]): Vector[A] =
     if s.isEmpty then s
     else
       val nbound = n % s.length // skipping the full rotation rounds
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
+
+
+
+
+object CycleFinder:
+
+  import scala.collection._
+
+  case class Cycle[A](stemLength: Int, cycleLength: Int, cycleHead: A, cycleLast: A, cycleHeadRepeat: A)
+  
+
+  extension [A](it: Iterator[A]) def zipWithPrev: Iterator[(Option[A], A)] =
+    new AbstractIterator[(Option[A], A)]:
+
+      private var prevOption: Option[A] =
+        None
+
+      override def hasNext: Boolean =
+        it.hasNext
+
+      override def next: (Option[A], A) =
+        val cur = it.next
+        val ret = (prevOption, cur)
+        prevOption = Some(cur)
+        ret
+
+  def find[A, B](coll: IterableOnce[A])(m: A => B): Option[Cycle[A]] =
+
+    val trace: mutable.Map[B, (A, Int)] =
+      mutable.Map[B, (A, Int)]()
+
+    coll.iterator
+      .zipWithPrev
+      .zipWithIndex
+      .map { case ((last, prev), idx) => (last, prev, trace.put(m(prev), (prev, idx)), idx) }
+      .collectFirst { case (Some(last), repeat, Some((prev, prevIdx)), idx) =>
+        Cycle(
+          stemLength      = prevIdx,
+          cycleLength     = idx - prevIdx,
+          cycleHead       = prev,
+          cycleLast       = last,
+          cycleHeadRepeat = repeat
+        )
+      }
+
+  def find[A, B](x0: A, f: A => A)(m: A => B): Cycle[A] =
+    find(Iterator.iterate(x0)(f))(m).get
 
 object GameTree: 
   enum DecisionTree[+A]:
@@ -319,3 +324,4 @@ object GameTree:
     def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
       case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
       case Nil => Result(Nil)
+
