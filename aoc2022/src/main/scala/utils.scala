@@ -4,6 +4,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.matching.Regex
 
+
+
 object Grid2D:
 
   case class Point(x: Int, y: Int):
@@ -31,6 +33,7 @@ object Grid2D:
 
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
 
+
     def smear(that: Point): Vector[Point] =
       val sm: Vector[Point] = for {
         xs <- Range(x.min(that.x), that.x.max(x) + 1).toVector
@@ -55,7 +58,6 @@ object Grid2D:
 
       bfs(LazyList(Vector(this)))(search, earlyExit)
 
-
   object Point:
     def convertToFlatGrid[A](grid: Vector[Point], makeTo: Point => A): (Int, IndexedSeq[A]) =
       val width: Int = grid.maxBy(_.x).x - grid.minBy(_.x).x + 1
@@ -68,7 +70,6 @@ object Grid2D:
     def gridPrintable(grid: Vector[Point])(f: Point => Char): String =
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
-
 
 object FlatGrid:
 
@@ -103,6 +104,27 @@ object FlatGrid:
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
 
+
+  
+  case class Line(delta: Int, b: Int):
+    val fx: Int => Int = (x: Int) => delta * x + b
+    val fy: Int => Int = (y: Int) => (y - b) / delta
+    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
+      (y: Int) => 
+        val x: Int = fy(y)
+        Option.when(x >= min && x <= max)(x)
+
+    def intersect(that: Line): Option[Point] =
+      if delta == that.delta then None // parallel (identical) lines no intersection possible
+      else
+        val x = (that.b - b) / (delta - that.delta)
+        Some(Point(x, fx(x)))
+
+  object Line:
+    def makeLine(p1: Point, p2: Point): Line =
+      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
+      val b: Int = p1.y - (delta * p1.x)
+      Line(delta, b)
 
 object Algorithms:
 
@@ -192,6 +214,12 @@ object Algorithms:
 
 
 object VectorUtils:
+  extension (c: Vector[Int])
+    def -(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v - that(i))
+    def +(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v + that(i))
+    def *(i: Int): Vector[Int] = c.map((v: Int) => v * i)
+    def >=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v >= that(i))
+    def <=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v <= that(i))
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
     def go(ass: Vector[A], acc: Vector[A] = Vector.empty, n: Int = 0): Vector[A] =
       if n + 1 == as.length then as(n) +: acc
@@ -215,6 +243,7 @@ object VectorUtils:
       val nbound = n % s.length // skipping the full rotation rounds
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
+
 
 
 
@@ -261,3 +290,38 @@ object CycleFinder:
 
   def find[A, B](x0: A, f: A => A)(m: A => B): Cycle[A] =
     find(Iterator.iterate(x0)(f))(m).get
+
+object GameTree: 
+  enum DecisionTree[+A]:
+    case Result(value: A)
+    case Decision(ds: List[DecisionTree[A]])
+
+    def map[B](f: A => B): DecisionTree[B] = this match
+      case Result(v) => Result(f(v))
+      case Decision(ds) => Decision(ds.map((t: DecisionTree[A]) => t.map(f)))
+
+    def flatMap[B](f: A => DecisionTree[B]): DecisionTree[B] = this match
+      case Result(v) => f(v)
+      case Decision(ds) => Decision(ds.map(_.flatMap(f)))
+
+    def apply[B](gf: DecisionTree[A => B]): DecisionTree[B] = gf match
+      case Result(v) => this.map(v)
+      case Decision(ds) => this match
+        case Result(v) => Decision(ds.map((f: DecisionTree[A => B]) => this.apply(f)))
+        case Decision(vs) => Decision(ds.zip(vs).map((gs: DecisionTree[A => B], vss: DecisionTree[A]) => vss.apply(gs)))
+        
+    def map2[B, C](fb: DecisionTree[B])(f: (A, B) => C): DecisionTree[C] = fb.apply(this.map(f.curried))
+
+
+  object DecisionTree:
+  
+    def treeToList[A](dt: DecisionTree[A]): List[A] = dt match
+      case Result(v)    => List(v)
+      case Decision(vs) => vs.flatMap((d: DecisionTree[A]) => treeToList(d))
+      
+    def pure[A](a: A): DecisionTree[A] = Result(a)
+  
+    def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
+      case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
+      case Nil => Result(Nil)
+
