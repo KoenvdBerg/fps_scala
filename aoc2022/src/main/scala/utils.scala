@@ -71,6 +71,27 @@ object Grid2D:
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
+  case class Line(delta: Int, b: Int):
+    val fx: Int => Int = (x: Int) => delta * x + b
+    val fy: Int => Int = (y: Int) => (y - b) / delta
+
+    def fyBounded(min: Int, max: Int): Int => Option[Int] =
+      (y: Int) =>
+        val x: Int = fy(y)
+        Option.when(x >= min && x <= max)(x)
+
+    def intersect(that: Line): Option[Point] =
+      if delta == that.delta then None // parallel (identical) lines no intersection possible
+      else
+        val x = (that.b - b) / (delta - that.delta)
+        Some(Point(x, fx(x)))
+
+  object Line:
+    def makeLine(p1: Point, p2: Point): Line =
+      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
+      val b: Int = p1.y - (delta * p1.x)
+      Line(delta, b)
+
 object FlatGrid:
 
   /**
@@ -104,27 +125,6 @@ object FlatGrid:
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
 
-
-  
-  case class Line(delta: Int, b: Int):
-    val fx: Int => Int = (x: Int) => delta * x + b
-    val fy: Int => Int = (y: Int) => (y - b) / delta
-    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
-      (y: Int) => 
-        val x: Int = fy(y)
-        Option.when(x >= min && x <= max)(x)
-
-    def intersect(that: Line): Option[Point] =
-      if delta == that.delta then None // parallel (identical) lines no intersection possible
-      else
-        val x = (that.b - b) / (delta - that.delta)
-        Some(Point(x, fx(x)))
-
-  object Line:
-    def makeLine(p1: Point, p2: Point): Line =
-      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
-      val b: Int = p1.y - (delta * p1.x)
-      Line(delta, b)
 
 object Algorithms:
 
@@ -324,4 +324,14 @@ object GameTree:
     def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
       case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
       case Nil => Result(Nil)
+      
+      
+object NumberTheory:
+  import math.Integral.Implicits.*
+  def toBinary(in: Int, acc: String = ""): String =
+    val (div, rem) = in /% 2
+    val bin: Char = "01"(rem)
+    if div == 0 then (acc + bin).reverse else intToBin(div, acc + bin)
+    
+    
 
