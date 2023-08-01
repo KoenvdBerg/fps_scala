@@ -1,7 +1,7 @@
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
-import aoc2022.Algorithms.Dijkstra.*
+import aoc2022.Algorithms.GraphTraversal.*
 import aoc2022.FlatGrid
 
 /**

@@ -33,6 +33,9 @@ object Grid2D:
     def -(p2: Point): Point = Point(x - p2.x, y - p2.y)
 
     def <(t: Point): Boolean = this.x < t.x && this.y < t.y
+    
+    def manhattan(that: Point): Int =
+      math.abs(this.x - that.x) + math.abs(this.y - that.y)
 
 
     def smear(that: Point): Vector[Point] =
@@ -72,6 +75,27 @@ object Grid2D:
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
+  case class Line(delta: Int, b: Int):
+    val fx: Int => Int = (x: Int) => delta * x + b
+    val fy: Int => Int = (y: Int) => (y - b) / delta
+
+    def fyBounded(min: Int, max: Int): Int => Option[Int] =
+      (y: Int) =>
+        val x: Int = fy(y)
+        Option.when(x >= min && x <= max)(x)
+
+    def intersect(that: Line): Option[Point] =
+      if delta == that.delta then None // parallel (identical) lines no intersection possible
+      else
+        val x = (that.b - b) / (delta - that.delta)
+        Some(Point(x, fx(x)))
+
+  object Line:
+    def makeLine(p1: Point, p2: Point): Line =
+      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
+      val b: Int = p1.y - (delta * p1.x)
+      Line(delta, b)
+
 object FlatGrid:
 
   /**
@@ -99,33 +123,18 @@ object FlatGrid:
 
     get(i)
 
-  def pointToIndex(x: Int, y: Int, rowSize: Int): Int =
-    y * rowSize + x
+  def pointToIndex(p: Grid2D.Point, rowSize: Int): Int =
+    p.y * rowSize + p.x
+
+  import scala.math.Integral.Implicits.*
+  def indexToPoint(i: Int, rowSize: Int): Grid2D.Point =
+    val (y, x): (Int, Int) = i /% rowSize
+    Grid2D.Point(x, y)
 
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
 
 
-  
-  case class Line(delta: Int, b: Int):
-    val fx: Int => Int = (x: Int) => delta * x + b
-    val fy: Int => Int = (y: Int) => (y - b) / delta
-    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
-      (y: Int) => 
-        val x: Int = fy(y)
-        Option.when(x >= min && x <= max)(x)
-
-    def intersect(that: Line): Option[Point] =
-      if delta == that.delta then None // parallel (identical) lines no intersection possible
-      else
-        val x = (that.b - b) / (delta - that.delta)
-        Some(Point(x, fx(x)))
-
-  object Line:
-    def makeLine(p1: Point, p2: Point): Line =
-      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
-      val b: Int = p1.y - (delta * p1.x)
-      Line(delta, b)
 
 object Algorithms:
 
@@ -174,11 +183,12 @@ object Algorithms:
     go(Set.empty[N], Queue(source))
 
 
-  object Dijkstra:
+  object GraphTraversal:
 
     import scala.collection.mutable.PriorityQueue
 
-    // adapted from: https://ummels.de/2015/01/18/dijkstra-in-scala/
+    // Dijkstra adapted from: https://ummels.de/2015/01/18/dijkstra-in-scala/
+    // A* adapted from: https://en.wikipedia.org/wiki/A*_search_algorithm
 
     type Graph[N] = N => Map[N, Int]
 
@@ -201,8 +211,36 @@ object Algorithms:
 
       go(Map(source -> 0), Map.empty[N, N])
 
+    def Astar[N](graph: Graph[N])(source: N, target: N, h: N => Int): (Map[N, Int], Map[N, N]) =
+
+      val fScore: mutable.Map[N, Int] = mutable.Map(source -> h(source))
+      val active: mutable.PriorityQueue[N] = mutable.PriorityQueue(source)(Ordering.by((n: N) => -fScore(n))) // todo: .reverse ?
+
+      @tailrec
+      def go(gScore: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
+        val node: N = active.dequeue
+        if node == target then (gScore, pred)  // select the next node with lowest fScore thus far
+        else
+          val cost: Int = gScore(node)
+          val neighbours: Map[N, Int] = for {
+            (n, d) <- graph(node) if cost + d < gScore.getOrElse(n, Int.MaxValue)
+          } yield n -> (cost + d)  // update distances
+          val preds: Map[N, N] = neighbours.map((f: (N, Int)) => (f._1, node))
+          neighbours.foreach((n: N, s: Int) => fScore.addOne(n -> (s + h(n))))  // update for new fScores
+          neighbours.foreach((n: N, _: Int) => active.enqueue(n))  // add next nodes to active nodes
+          go(gScore ++ neighbours, pred ++ preds)
+
+      go(Map(source -> 0), Map.empty[N, N])
+
     def shortestPath[N](g: Graph[N])(source: N, target: N): Option[List[N]] =
+      // TODO: if multiple targets, then target: N => Boolean
       val pred: Map[N, N] = dijkstra(g)(source)._2
+      if pred.contains(target) || source == target then
+        Some(iterateRight(target)(pred.get))
+      else None
+
+    def shortestPath[N](g: Graph[N])(source: N, target: N, heuristic: N => Int): Option[List[N]] =
+      val pred: Map[N, N] = Astar(g)(source, target, heuristic)._2
       if pred.contains(target) || source == target then
         Some(iterateRight(target)(pred.get))
       else None
@@ -213,21 +251,22 @@ object Algorithms:
       else if source == target then Some(0)
       else None
 
+    def shortestDistance[N](g: Graph[N])(source: N, target: N, heuristic: N => Int): Option[Int] =
+      val pred: Map[N, Int] = Astar(g)(source, target, heuristic)._1
+      if pred.contains(target) then pred.get(target)
+      else if source == target then Some(0)
+      else None
+
     def iterateRight[N](x: N)(f: N => Option[N]): List[N] =
 
+      @tailrec
       def go(xx: N, acc: List[N]): List[N] = f(xx) match
         case None    => xx :: acc
         case Some(v) => go(v, xx :: acc)
 
       go(x, List.empty[N])
-
-    def tree(depth: Int): Graph[List[Boolean]] =
-      (x: List[Boolean]) => x match
-        case x if x.length < depth =>
-          Map((true :: x) -> 1, (false :: x) -> 2)
-        case x if x.length == depth => Map(Nil -> 1)
-        case _ => Map.empty
-
+        
+  end GraphTraversal
 
 object VectorUtils:
   extension (c: Vector[Int])
@@ -260,6 +299,9 @@ object VectorUtils:
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
 
+  def swap[A](in: Vector[A], a: Int, b: Int): Vector[A] =
+    val todo: A = in(a)
+    in.updated(a, in(b)).updated(b, todo)
 
 
 
