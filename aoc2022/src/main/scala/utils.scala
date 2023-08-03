@@ -261,6 +261,17 @@ object VectorUtils:
       else s.drop(nbound) ++ s.take(nbound)
 
 
+  case class CircleVector[A](size: Int, v: Vector[A]):
+    def moveN(i: Int, n: Int): CircleVector[A] =
+      val dir: Int = (i + n) % size
+      if dir < 0 then moveN(i, dir + size - 2)
+      else if dir == 0 then moveN(i, size - i - 1)
+      else
+        val todo: Vector[(A, Double)] = v.zipWithIndex.map(x => (x._1, x._2.toDouble))
+        val next: Vector[(A, Double)] = todo.filterNot(_._2 == i)
+        CircleVector(size, ((v(i), dir + 0.1) +: next).sortBy(_._2).map(_._1))
+
+
 
 
 object CycleFinder:
@@ -340,4 +351,5 @@ object GameTree:
     def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
       case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
       case Nil => Result(Nil)
+
 
