@@ -32,9 +32,8 @@ import scala.collection.mutable.Stack
  * PART 2:
  *
  * The idea here is that since the amount of generations is way too large to compute by brute force, we'll have to be
- * smart about our solution. I found that after a certain amount of generations the increase in score becomes a
- * linear function in the form of: y = ax + b. See below in the code how I solved that. Your input will probably lead
- * to different values, but the idea on how to solve should be similar.
+ * smart about our solution. Using the cycle detection algorithm of Brent I found the cycle and used its metrics to 
+ * compute the score after the big amount of generations. 
  *
  *
  */
@@ -97,31 +96,31 @@ object day12 extends App:
         .map(_._2 - leftOff)        // subtracting the left offset
         .sum
 
+    def next(lookSize: Int): Generation =
+      // add 1 extra pot to each side each new generation
+      val plantRow: String = "." * (lookSize + 1) + this.state + "." * (lookSize + 1)
 
-    def simulatePlants(lookSize: Int, maxGen: Int = 20): Generation =
+      // create slices of 5 plants each, appending empty pots to the first and last plants in the row
+      val plantCouplets: List[String] =
+        Range(lookSize, plantRow.length - lookSize)
+          .map(i => plantRow.slice(i - lookSize, i + lookSize + 1))
+          .toList
+
+      val nextState: String =
+        plantCouplets
+          .map(plant => updatePlant(plant))
+          .mkString("")
+
+      Generation(this.n + 1, nextState, this.growth)
+
+    def simulatePlants(lookSize: Int, maxGen: Int): Generation =
       if this.n >= maxGen then this  // exit condition
       else
-
-        // add 1 extra pot to each side each new generation
-        val plantRow: String = "." * (lookSize+1) + this.state + "." * (lookSize+1)
-
-        // create slices of 5 plants each, appending empty pots to the first and last plants in the row
-        val plantCouplets: List[String] =
-          Range(lookSize, plantRow.length-lookSize)
-            .map(i => plantRow.slice(i-lookSize, i+lookSize+1))
-            .toList
-
-        val nextState: String =
-          plantCouplets
-            .map(plant => updatePlant(plant))
-            .mkString("")
-
-        val nextGeneration = Generation(this.n + 1, nextState, this.growth)
+        val nextGeneration: Generation = this.next(lookSize)
 
         nextGeneration.simulatePlants(lookSize,  maxGen)
 
-
-  private val finalGeneration: Generation = input.simulatePlants(lookSize = 2, maxGen = 21)
+  private val finalGeneration: Generation = input.simulatePlants(lookSize = 2, maxGen = 20)
   private val answer1 = finalGeneration.computeScore
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
@@ -129,21 +128,44 @@ object day12 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  /**
-   *
-   * I found that after 161 generations the increase in plant score doesn't change anymore.
-   * Each new generation gets +73. I found this difference in the REPL with:
-   *
-   *  x.sliding(2).map(p => p(1) - p(0)).toList
-   *
-   * where x are plant scores for each generation up to 300 generations. I discovered in
-   * the REPL that the generation where the increase goes stale is 161, with value 12130.
-   * The stale increase is +73.
-   *
-   */
+  case class Cycle[A](stemLength: Int, cycleLength: Int, first: A, last: A)
 
-  private val staleGen: Int = 161
-  private val staleValue: Int = 12130
-  private val staleIncr: Int = 73
+  object Cycle:
+    def find[A, B](f: A => A, x0: A)(g: A => B): Cycle[A] =
+      @annotation.tailrec
+      def findCycleLength(tortoise: A, hare: A, cycleLength: Int, power: Int): Int =
+        if g(tortoise) == g(hare) then
+          cycleLength
+        else if power == cycleLength then
+          findCycleLength(hare, f(hare), 1, power * 2)
+        else
+          findCycleLength(tortoise, f(hare), cycleLength + 1, power)
+
+      @annotation.tailrec
+      def findStemLength(tortoise: A, hare: A, prevHare: A, stemLength: Int): (Int, A, A) =
+        if g(tortoise) == g(hare) then
+          (stemLength, tortoise, prevHare)
+        else
+          findStemLength(f(tortoise), f(hare), hare, stemLength + 1)
+
+      val cycleLength =
+        findCycleLength(x0, f(x0), 1, 1)
+
+      val hare =
+        (0 until cycleLength).foldLeft(x0)((acc, _) => f(acc))
+
+      val (stemLength, first, last) =
+        findStemLength(x0, hare, hare, 0)
+
+      Cycle(stemLength, cycleLength, first, last)
+
+  val g: Generation => Int = (g: Generation) => g.next(2).computeScore - g.computeScore
+  val f: Generation => Generation = (g: Generation) => g.next(2)
+
+
+  private val cycleDetection: Cycle[Generation] = Cycle.find(f, input)(g)
+  private val staleGen: Int = cycleDetection.stemLength
+  private val staleValue: Int = cycleDetection.first.computeScore
+  private val staleIncr: Int = cycleDetection.last.next(2).computeScore - cycleDetection.first.computeScore
   private val answer2 = (50000000000L - staleGen) * staleIncr + staleValue
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
