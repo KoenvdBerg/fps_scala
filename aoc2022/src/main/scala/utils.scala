@@ -18,6 +18,15 @@ object Grid2D:
         Point(x, y + 1)
       )
 
+    def adjacentInclusive: Set[Point] =
+      Set(
+        Point(x, y - 1),
+        Point(x - 1, y),
+        Point(x + 1, y),
+        Point(x, y + 1),
+        Point(x, y)
+      )
+
     def adjacentDown: Set[Point] = Set(Point(x, y + 1))
 
     def adjacentSides(dir: String): Set[Point] = dir match
@@ -72,6 +81,26 @@ object Grid2D:
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
+  case class Line(delta: Int, b: Int):
+    val fx: Int => Int = (x: Int) => delta * x + b
+    val fy: Int => Int = (y: Int) => (y - b) / delta
+    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
+      (y: Int) => 
+        val x: Int = fy(y)
+        Option.when(x >= min && x <= max)(x)
+
+    def intersect(that: Line): Option[Point] =
+      if delta == that.delta then None // parallel (identical) lines no intersection possible
+      else
+        val x = (that.b - b) / (delta - that.delta)
+        Some(Point(x, fx(x)))
+
+  object Line:
+    def makeLine(p1: Point, p2: Point): Line =
+      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
+      val b: Int = p1.y - (delta * p1.x)
+      Line(delta, b)
+
 object FlatGrid:
 
   /**
@@ -104,28 +133,6 @@ object FlatGrid:
 
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
-
-
-  
-  case class Line(delta: Int, b: Int):
-    val fx: Int => Int = (x: Int) => delta * x + b
-    val fy: Int => Int = (y: Int) => (y - b) / delta
-    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
-      (y: Int) => 
-        val x: Int = fy(y)
-        Option.when(x >= min && x <= max)(x)
-
-    def intersect(that: Line): Option[Point] =
-      if delta == that.delta then None // parallel (identical) lines no intersection possible
-      else
-        val x = (that.b - b) / (delta - that.delta)
-        Some(Point(x, fx(x)))
-
-  object Line:
-    def makeLine(p1: Point, p2: Point): Line =
-      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
-      val b: Int = p1.y - (delta * p1.x)
-      Line(delta, b)
 
 object Algorithms:
 
@@ -218,7 +225,6 @@ object Algorithms:
       def go(xx: N, acc: List[N]): List[N] = f(xx) match
         case None    => xx :: acc
         case Some(v) => go(v, xx :: acc)
-
       go(x, List.empty[N])
 
     def tree(depth: Int): Graph[List[Boolean]] =
@@ -227,6 +233,7 @@ object Algorithms:
           Map((true :: x) -> 1, (false :: x) -> 2)
         case x if x.length == depth => Map(Nil -> 1)
         case _ => Map.empty
+  end Dijkstra
 
 
 object VectorUtils:
