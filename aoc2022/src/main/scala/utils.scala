@@ -18,6 +18,15 @@ object Grid2D:
         Point(x, y + 1)
       )
 
+    def adjacentInclusive: Set[Point] =
+      Set(
+        Point(x, y - 1),
+        Point(x - 1, y),
+        Point(x + 1, y),
+        Point(x, y + 1),
+        Point(x, y)
+      )
+
     def adjacentDown: Set[Point] = Set(Point(x, y + 1))
 
     def adjacentSides(dir: String): Set[Point] = dir match
@@ -133,7 +142,6 @@ object FlatGrid:
 
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
-
 
 
 object Algorithms:
@@ -263,10 +271,10 @@ object Algorithms:
       def go(xx: N, acc: List[N]): List[N] = f(xx) match
         case None    => xx :: acc
         case Some(v) => go(v, xx :: acc)
-
       go(x, List.empty[N])
         
   end GraphTraversal
+
 
 object VectorUtils:
   extension (c: Vector[Int])
@@ -302,6 +310,17 @@ object VectorUtils:
   def swap[A](in: Vector[A], a: Int, b: Int): Vector[A] =
     val todo: A = in(a)
     in.updated(a, in(b)).updated(b, todo)
+
+  case class CircleVector[A](size: Int, v: Vector[A]):
+    def moveN(i: Int, n: Int): CircleVector[A] =
+      val dir: Int = (i + n) % size
+      if dir < 0 then moveN(i, dir + size - 2)
+      else if dir == 0 then moveN(i, size - i - 1)
+      else
+        val todo: Vector[(A, Double)] = v.zipWithIndex.map(x => (x._1, x._2.toDouble))
+        val next: Vector[(A, Double)] = todo.filterNot(_._2 == i)
+        CircleVector(size, ((v(i), dir + 0.1) +: next).sortBy(_._2).map(_._1))
+
 
 
 
@@ -382,4 +401,15 @@ object GameTree:
     def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
       case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
       case Nil => Result(Nil)
+      
+      
+object NumberTheory:
+  import math.Integral.Implicits.*
+  def toBinary(in: Int, acc: String = ""): String =
+    val (div, rem) = in /% 2
+    val bin: Char = "01"(rem)
+    if div == 0 then (acc + bin).reverse else toBinary(div, acc + bin)
+    
+    
+
 
