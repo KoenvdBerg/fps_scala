@@ -1,5 +1,5 @@
 import scala.io.*
-import aoc2022.Algorithms.Dijkstra.*
+import aoc2022.Algorithms.GraphTraversal.*
 
 import scala.collection.immutable.Queue
 
