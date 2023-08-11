@@ -1,6 +1,7 @@
 package aoc2022
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Queue
 import scala.collection.mutable
 import scala.util.matching.Regex
 
@@ -15,6 +16,15 @@ object Grid2D:
         Point(x - 1, y),
         Point(x + 1, y),
         Point(x, y + 1)
+      )
+
+    def adjacentInclusive: Set[Point] =
+      Set(
+        Point(x, y - 1),
+        Point(x - 1, y),
+        Point(x + 1, y),
+        Point(x, y + 1),
+        Point(x, y)
       )
 
     def adjacentDown: Set[Point] = Set(Point(x, y + 1))
@@ -158,6 +168,21 @@ object Algorithms:
     go(start, initStep)
 
 
+  def floodAlgorithm[N](g: N => Set[N])(source: N): Set[N] =
+    import scala.collection.immutable.Queue
+
+    @tailrec
+    def go(res: Set[N], active: Queue[N]): Set[N] =
+      if active.isEmpty then res
+      else
+        val (node, rem): (N, Queue[N]) = active.dequeue
+        val neighbours: Set[N] = g(node).filter((n: N) => !res(n))  // node should not have been seen before
+        val nextQueue: Queue[N] = rem.enqueueAll(neighbours)        // add all next nodes to queue
+        go(res ++ neighbours, nextQueue)
+
+    go(Set.empty[N], Queue(source))
+
+
   object Dijkstra:
 
     import scala.collection.mutable.PriorityQueue
@@ -202,7 +227,6 @@ object Algorithms:
       def go(xx: N, acc: List[N]): List[N] = f(xx) match
         case None    => xx :: acc
         case Some(v) => go(v, xx :: acc)
-
       go(x, List.empty[N])
 
     def tree(depth: Int): Graph[List[Boolean]] =
@@ -211,6 +235,7 @@ object Algorithms:
           Map((true :: x) -> 1, (false :: x) -> 2)
         case x if x.length == depth => Map(Nil -> 1)
         case _ => Map.empty
+  end Dijkstra
 
 
 object VectorUtils:
@@ -243,6 +268,17 @@ object VectorUtils:
       val nbound = n % s.length // skipping the full rotation rounds
       if nbound < 0 then rotateVector(nbound + s.length, s)
       else s.drop(nbound) ++ s.take(nbound)
+
+
+  case class CircleVector[A](size: Int, v: Vector[A]):
+    def moveN(i: Int, n: Int): CircleVector[A] =
+      val dir: Int = (i + n) % size
+      if dir < 0 then moveN(i, dir + size - 2)
+      else if dir == 0 then moveN(i, size - i - 1)
+      else
+        val todo: Vector[(A, Double)] = v.zipWithIndex.map(x => (x._1, x._2.toDouble))
+        val next: Vector[(A, Double)] = todo.filterNot(_._2 == i)
+        CircleVector(size, ((v(i), dir + 0.1) +: next).sortBy(_._2).map(_._1))
 
 
 
@@ -334,4 +370,5 @@ object NumberTheory:
     if div == 0 then (acc + bin).reverse else intToBin(div, acc + bin)
     
     
+
 
