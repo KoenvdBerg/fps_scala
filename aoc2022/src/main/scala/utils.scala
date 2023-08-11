@@ -84,8 +84,9 @@ object Grid2D:
   case class Line(delta: Int, b: Int):
     val fx: Int => Int = (x: Int) => delta * x + b
     val fy: Int => Int = (y: Int) => (y - b) / delta
-    def fyBounded(min: Int, max: Int): Int => Option[Int] = 
-      (y: Int) => 
+
+    def fyBounded(min: Int, max: Int): Int => Option[Int] =
+      (y: Int) =>
         val x: Int = fy(y)
         Option.when(x >= min && x <= max)(x)
 
@@ -133,6 +134,7 @@ object FlatGrid:
 
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
+
 
 object Algorithms:
 
@@ -358,5 +360,15 @@ object GameTree:
     def sequence[A](dtl: List[DecisionTree[A]]): DecisionTree[List[A]] = dtl match
       case h :: t => h.flatMap((a: A) => sequence(t).map((b: List[A]) => a :: b))
       case Nil => Result(Nil)
+      
+      
+object NumberTheory:
+  import math.Integral.Implicits.*
+  def toBinary(in: Int, acc: String = ""): String =
+    val (div, rem) = in /% 2
+    val bin: Char = "01"(rem)
+    if div == 0 then (acc + bin).reverse else intToBin(div, acc + bin)
+    
+    
 
 
