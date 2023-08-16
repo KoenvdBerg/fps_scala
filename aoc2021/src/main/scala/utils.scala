@@ -276,6 +276,14 @@ object Algorithms:
   end GraphTraversal
 
 
+object MapUtils:
+  def zero: Map[String, Long] = Map.empty[String, Long]
+
+  def op(a1: Map[String, Long], a2: Map[String, Long]): Map[String, Long] =
+    (a1.keySet ++ a2.keySet).foldLeft(zero) { (acc, k) =>
+      acc.updated(k, a1.getOrElse(k, 0L) + a2.getOrElse(k, 0L))
+    }
+
 object VectorUtils:
   extension (c: Vector[Int])
     def -(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v - that(i))
