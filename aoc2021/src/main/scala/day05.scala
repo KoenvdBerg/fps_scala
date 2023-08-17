@@ -13,9 +13,10 @@ object day05 extends App:
   private val input: Vector[(Int, Int, Line)] =
     
     def parse(s: String): (Int, Int, Line) = s match
-      case s"$x1,$y1 -> $x2,$y2" if x1.toInt == x2.toInt => (y1.toInt, y2.toInt, Line.makeLine(Point(x1.toInt, y1.toInt), Point(x2.toInt, y2.toInt)))
+      case s"$x1,$y1 -> $x2,$y2" if x1.toInt == x2.toInt && y1.toInt < y2.toInt => (y1.toInt, y2.toInt, Line.makeLine(Point(x1.toInt, y1.toInt), Point(x2.toInt, y2.toInt)))
+      case s"$x1,$y1 -> $x2,$y2" if x1.toInt == x2.toInt => (y2.toInt, y1.toInt, Line.makeLine(Point(x1.toInt, y1.toInt), Point(x2.toInt, y2.toInt)))
       case s"$x1,$y1 -> $x2,$y2" if x1.toInt < x2.toInt => (x1.toInt, x2.toInt, Line.makeLine(Point(x1.toInt, y1.toInt), Point(x2.toInt, y2.toInt)))
-      case s"$x1,$y1 -> $x2,$y2" if x1.toInt > x2.toInt => (x2.toInt, x1.toInt, Line.makeLine(Point(x1.toInt, y1.toInt), Point(x2.toInt, y2.toInt)))
+      case s"$x1,$y1 -> $x2,$y2" => (x2.toInt, x1.toInt, Line.makeLine(Point(x1.toInt, y1.toInt), Point(x2.toInt, y2.toInt)))
       case _ => sys.error(s"Cannot parse $s")
     
     Source
@@ -24,19 +25,9 @@ object day05 extends App:
       .toVector
       .map(parse)
   
-  private val res1 = input.flatMap(f => f._3 match
-    case fx : Line.Fx => None
-    case _            => Some(f._3.getRange(f._1, f._2)))
-    .flatten
-  
-  
-  println(input)
-  
-  val t = Line.Y(10)
-  
-  println(t.getRange(1, 10))
-  
-  
+  private val res1 = input
+    .filter(_._3.delta == 0)
+    .flatMap(in => in._3.getRange(in._1, in._2))
   
   // too low: 3125
   private val answer1 = res1.groupBy(identity).count(_._2.length > 1)

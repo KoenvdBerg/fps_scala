@@ -84,40 +84,53 @@ object Grid2D:
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
-  
-  enum Line: 
-    case Fx(delta: Double, b: Double)
-    case Y(y: Double)
-    case X(x: Double)
+
+  enum Eq:
+    case Fx, Fy  
+  case class Line2(delta: Double, b: Double, form: Eq): 
+    
+
+//  enum Line: 
+//    case Fx(d: Double, b: Double)
+//    case Fy(d: Double, b: Double)
+//    
+//    val delta: Double = this match
+//      case Fx(d, _) => d
+//      case Fy(d, _) => d
     
     val getFunction: Double => Double = this match
       case Fx(d, b) => (x: Double) => d * x + b
-      case Y(y)     => (x: Double) => y
-      case X(xx)    => (y: Double) => xx
+      case Fy(d, b) => (y: Double) => d * y + b
     
-    def getRange(xMin: Int, xMax: Int): Vector[(Double, Double)] =
-      (xMin to xMax).map((x: Int) => this match
-        case X(v) => (v, x.toDouble)
-        case _    => (x.toDouble, this.getFunction(x))).toVector
-
+    def getRange(min: Int, maxInclusive: Int): Vector[(Double, Double)] =
+      val range: Vector[Double] = (min to maxInclusive).toVector.map(_.toDouble)
+      range.map { (i: Double) => this match
+        case f: Fx => (i, f.getFunction(i))
+        case f: Fy => (f.getFunction(i), i)
+      }
+    
+    private def intersectSame(d1: Double, d2: Double, b1: Double, b2: Double): Option[(Double, Double)] =
+      if d1 == d2 then None // parallel (identical) lines no intersection possible
+      else
+        val x = (b2 - b1) / (d1 - d2)
+        Some((x, getFunction(x)))
+        
+    private def intersectOther(d1: Double, d2: Double, b1: Double, b2: Double): Option[(Double, Double)] =
+      if d1 * d2 == 1 then None  // parallel (identical) lines no intersection possible
+      else 
+        val x = (d2 * b1 + b2) / (1 - d1 * d2)
+        Some((x, getFunction(x)))
+    
     def intersect(that: Line): Option[(Double, Double)] = (this, that) match
-      case (Fx(d1, b1), Fx(d2, b2)) => 
-        if d1 == d2 then None // parallel (identical) lines no intersection possible
-        else
-          val x = (b2 - b1) / (d1 - d2)
-          Some((x, getFunction(x)))
-      case (Fx(_, _), X(x)) => Some((x, getFunction(x)))
-      case (X(x), Fx(_, _)) => Some((x, that.getFunction(x)))
-      case (Fx(d, b), Y(y)) => Some(((y - b) / d, y)) 
-      case (Y(y), Fx(d, b)) => Some(((y - b) / d, y))
-      case (Y(y), X(x))     => Some((x, y))
-      case (X(x), Y(y))     => Some((x, y))
-      case _                => None 
+      case (Fx(d1, b1), Fx(d2, b2)) => intersectSame(d1, d2, b1, b2)
+      case (Fy(d1, b1), Fy(d2, b2)) => intersectSame(d1, d2, b1, b2)
+      case (Fx(d1, b1), Fy(d2, b2)) => intersectOther(d1, d2, b1, b2)
+      case (Fy(d1, b1), Fx(d2, b2)) => intersectOther(d2, d1, b2, b1)
 
   object Line:
     def makeLine(p1: Point, p2: Point): Line =
-      if p1.x == p2.x      then X(p2.x)
-      else if p1.y == p2.y then Y(p1.y)
+      if p1.x == p2.x      then Fy(0, p2.x)
+      else if p1.y == p2.y then Fx(0, p1.y)
       else 
         val delta: Double = (p2.y - p1.y) / (p2.x - p1.x)
         val b: Double = p1.y - (delta * p1.x)
