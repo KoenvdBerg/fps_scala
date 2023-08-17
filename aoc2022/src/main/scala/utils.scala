@@ -325,48 +325,37 @@ object VectorUtils:
 
 
 object CycleFinder:
+  case class Cycle[A](stemLength: Int, cycleLength: Int, first: A, last: A)
 
-  import scala.collection._
+  object Cycle:
+    def find[A, B](f: A => A, x0: A)(g: A => B): Cycle[A] =
+      @annotation.tailrec
+      def findCycleLength(tortoise: A, hare: A, cycleLength: Int, power: Int): Int =
+        if g(tortoise) == g(hare) then
+          cycleLength
+        else if power == cycleLength then
+          findCycleLength(hare, f(hare), 1, power * 2)
+        else
+          findCycleLength(tortoise, f(hare), cycleLength + 1, power)
 
-  case class Cycle[A](stemLength: Int, cycleLength: Int, cycleHead: A, cycleLast: A, cycleHeadRepeat: A)
-  
+      @annotation.tailrec
+      def findStemLength(tortoise: A, hare: A, prevHare: A, stemLength: Int): (Int, A, A) =
+        if g(tortoise) == g(hare) then
+          (stemLength, tortoise, prevHare)
+        else
+          findStemLength(f(tortoise), f(hare), hare, stemLength + 1)
 
-  extension [A](it: Iterator[A]) def zipWithPrev: Iterator[(Option[A], A)] =
-    new AbstractIterator[(Option[A], A)]:
+      val cycleLength =
+        findCycleLength(x0, f(x0), 1, 1)
 
-      private var prevOption: Option[A] =
-        None
+      val hare =
+        (0 until cycleLength).foldLeft(x0)((acc, _) => f(acc))
 
-      override def hasNext: Boolean =
-        it.hasNext
+      val (stemLength, first, last) =
+        findStemLength(x0, hare, hare, 0)
 
-      override def next: (Option[A], A) =
-        val cur = it.next
-        val ret = (prevOption, cur)
-        prevOption = Some(cur)
-        ret
-
-  def find[A, B](coll: IterableOnce[A])(m: A => B): Option[Cycle[A]] =
-
-    val trace: mutable.Map[B, (A, Int)] =
-      mutable.Map[B, (A, Int)]()
-
-    coll.iterator
-      .zipWithPrev
-      .zipWithIndex
-      .map { case ((last, prev), idx) => (last, prev, trace.put(m(prev), (prev, idx)), idx) }
-      .collectFirst { case (Some(last), repeat, Some((prev, prevIdx)), idx) =>
-        Cycle(
-          stemLength      = prevIdx,
-          cycleLength     = idx - prevIdx,
-          cycleHead       = prev,
-          cycleLast       = last,
-          cycleHeadRepeat = repeat
-        )
-      }
-
-  def find[A, B](x0: A, f: A => A)(m: A => B): Cycle[A] =
-    find(Iterator.iterate(x0)(f))(m).get
+      Cycle(stemLength, cycleLength, first, last)
+end CycleFinder
 
 object GameTree: 
   enum DecisionTree[+A]:
