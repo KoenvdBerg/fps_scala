@@ -84,26 +84,45 @@ object Grid2D:
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
-  case class Line(delta: Int, b: Int):
-    val fx: Int => Int = (x: Int) => delta * x + b
-    val fy: Int => Int = (y: Int) => (y - b) / delta
+  
+  enum Line: 
+    case Fx(delta: Double, b: Double)
+    case Y(y: Double)
+    case X(x: Double)
+    
+    val getFunction: Double => Double = this match
+      case Fx(d, b) => (x: Double) => d * x + b
+      case Y(y)     => (x: Double) => y
+      case X(xx)    => (y: Double) => xx
+    
+    def getRange(xMin: Int, xMax: Int): Vector[(Double, Double)] =
+      (xMin to xMax).map((x: Int) => this match
+        case X(v) => (v, x.toDouble)
+        case _    => (x.toDouble, this.getFunction(x))).toVector
 
-    def fyBounded(min: Int, max: Int): Int => Option[Int] =
-      (y: Int) =>
-        val x: Int = fy(y)
-        Option.when(x >= min && x <= max)(x)
-
-    def intersect(that: Line): Option[Point] =
-      if delta == that.delta then None // parallel (identical) lines no intersection possible
-      else
-        val x = (that.b - b) / (delta - that.delta)
-        Some(Point(x, fx(x)))
+    def intersect(that: Line): Option[(Double, Double)] = (this, that) match
+      case (Fx(d1, b1), Fx(d2, b2)) => 
+        if d1 == d2 then None // parallel (identical) lines no intersection possible
+        else
+          val x = (b2 - b1) / (d1 - d2)
+          Some((x, getFunction(x)))
+      case (Fx(_, _), X(x)) => Some((x, getFunction(x)))
+      case (X(x), Fx(_, _)) => Some((x, that.getFunction(x)))
+      case (Fx(d, b), Y(y)) => Some(((y - b) / d, y)) 
+      case (Y(y), Fx(d, b)) => Some(((y - b) / d, y))
+      case (Y(y), X(x))     => Some((x, y))
+      case (X(x), Y(y))     => Some((x, y))
+      case _                => None 
 
   object Line:
     def makeLine(p1: Point, p2: Point): Line =
-      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
-      val b: Int = p1.y - (delta * p1.x)
-      Line(delta, b)
+      if p1.x == p2.x      then X(p2.x)
+      else if p1.y == p2.y then Y(p1.y)
+      else 
+        val delta: Double = (p2.y - p1.y) / (p2.x - p1.x)
+        val b: Double = p1.y - (delta * p1.x)
+        Fx(delta, b)
+  
 
 object FlatGrid:
 
