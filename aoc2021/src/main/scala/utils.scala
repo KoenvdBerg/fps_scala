@@ -85,28 +85,27 @@ object Grid2D:
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
 
-  enum Eq:
-    case Fx, Fy  
-  case class Line2(delta: Double, b: Double, form: Eq): 
-    
+  enum LinearEq:
+    case Fx, Fy
 
-//  enum Line: 
-//    case Fx(d: Double, b: Double)
-//    case Fy(d: Double, b: Double)
-//    
-//    val delta: Double = this match
-//      case Fx(d, _) => d
-//      case Fy(d, _) => d
+  /**
+   * Below describes the equations for: 
+   * 
+   * - y = ax + b (Fx) 
+   * 
+   * - x = by + c (Fy)
+   */
+  case class Line(delta: Double, b: Double, form: LinearEq):
     
-    val getFunction: Double => Double = this match
-      case Fx(d, b) => (x: Double) => d * x + b
-      case Fy(d, b) => (y: Double) => d * y + b
+    import LinearEq.*
+    
+    val getFunction: Double => Double = (d: Double) => delta * d + b
     
     def getRange(min: Int, maxInclusive: Int): Vector[(Double, Double)] =
       val range: Vector[Double] = (min to maxInclusive).toVector.map(_.toDouble)
-      range.map { (i: Double) => this match
-        case f: Fx => (i, f.getFunction(i))
-        case f: Fy => (f.getFunction(i), i)
+      range.map { (i: Double) => this.form match
+        case Fx => (i, getFunction(i))
+        case Fy => (getFunction(i), i)
       }
     
     private def intersectSame(d1: Double, d2: Double, b1: Double, b2: Double): Option[(Double, Double)] =
@@ -121,20 +120,20 @@ object Grid2D:
         val x = (d2 * b1 + b2) / (1 - d1 * d2)
         Some((x, getFunction(x)))
     
-    def intersect(that: Line): Option[(Double, Double)] = (this, that) match
-      case (Fx(d1, b1), Fx(d2, b2)) => intersectSame(d1, d2, b1, b2)
-      case (Fy(d1, b1), Fy(d2, b2)) => intersectSame(d1, d2, b1, b2)
-      case (Fx(d1, b1), Fy(d2, b2)) => intersectOther(d1, d2, b1, b2)
-      case (Fy(d1, b1), Fx(d2, b2)) => intersectOther(d2, d1, b2, b1)
+    def intersect(that: Line): Option[(Double, Double)] = 
+      if this.form == that.form then intersectSame(this.delta, that.delta, this.b, that.b)
+      else if this.form == Fy then intersectOther(that.delta, this.delta, that.b, this.b)
+      else intersectOther(this.delta, that.delta, this.b, that.b)
+      
 
   object Line:
     def makeLine(p1: Point, p2: Point): Line =
-      if p1.x == p2.x      then Fy(0, p2.x)
-      else if p1.y == p2.y then Fx(0, p1.y)
+      if p1.x == p2.x      then Line(0, p2.x, LinearEq.Fy)
+      else if p1.y == p2.y then Line(0, p1.y, LinearEq.Fx)
       else 
         val delta: Double = (p2.y - p1.y) / (p2.x - p1.x)
         val b: Double = p1.y - (delta * p1.x)
-        Fx(delta, b)
+        Line(delta, b, LinearEq.Fx)
   
 
 object FlatGrid:

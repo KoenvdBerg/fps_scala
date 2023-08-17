@@ -26,15 +26,13 @@ object day05 extends App:
       .map(parse)
   
   private val res1 = input
-    .filter(_._3.delta == 0)
-    .flatMap(in => in._3.getRange(in._1, in._2))
-  
-  // too low: 3125
-  private val answer1 = res1.groupBy(identity).count(_._2.length > 1)
+    .map(in => (in._3.delta, in._3.getRange(in._1, in._2)))
+
+  private val answer1 = res1.filter(_._1 == 0).flatMap(_._2).groupBy(identity).count(_._2.length > 1)
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
 
-  private val answer2 = None
+  private val answer2 = res1.flatMap(_._2).groupBy(identity).count(_._2.length > 1)
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
