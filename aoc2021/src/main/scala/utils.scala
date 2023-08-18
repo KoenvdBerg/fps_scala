@@ -413,7 +413,15 @@ object GameTree:
 
 object NumberTheory:
   import math.Integral.Implicits.*
+  @tailrec
   def toBinary(in: Int, acc: String = ""): String =
     val (div, rem) = in /% 2
     val bin: Char = "01"(rem)
     if div == 0 then (acc + bin).reverse else toBinary(div, acc + bin)
+
+  def binaryToDec(binary: String): Int =
+    val l: Int = binary.length
+    binary.foldLeft((1, 0)) { (res: (Int, Int), in: Char) =>
+      val toAdd: Int = math.pow(2, l - res._1).toInt * Map('1' -> 1, '0' -> 0)(in)
+      (res._1 + 1, res._2 + toAdd)
+    }._2
