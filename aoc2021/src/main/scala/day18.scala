@@ -3,7 +3,7 @@ import scala.io.*
 import aoc2021.Combinator.Parser
 import aoc2021.Combinator.Parser.*
 
-object aay18 extends App:
+object day18 extends App:
 
   private val day: String =
     this.getClass.getName.drop(3).init
@@ -17,11 +17,14 @@ object aay18 extends App:
       .getLines
       .toList
       .map(SnailNumber.parseSnailNumber)
-    
 
   enum SnailNumber: 
     case Pair(left: SnailNumber, right: SnailNumber)
     case Num(number: Int)
+    
+    def asString: String = this match
+      case Pair(l, r) => "[" + l.asString + "," + r.asString + "]"
+      case Num(n)     => s"$n"
     
     def ++(that: SnailNumber): SnailNumber = Pair(this, that)
     
@@ -56,12 +59,25 @@ object aay18 extends App:
       def go(sn: SnailNumber): (SnailNumber, Boolean) = sn match
         case Pair(l, r) => 
           val (left, done) = go(l)
-          if done then (Pair(left, r), done)
-          else (Pair(left, go(r)._1), done)
+          if done then (Pair(left, r), true)
+          else 
+            val (right, d) = go(r)
+            (Pair(left, right), d)
         case Num(n) if n >= 10 => (Pair(Num(n / 2), Num((n + 1) / 2)), true)
         case Num(n)            => (Num(n), false)
       
       go(this)._1
+
+    @tailrec
+    final def reduce: SnailNumber =
+      val x = this.explode
+      val next = x.splitOne
+      if next == this then next else next.reduce
+      
+    def magnitude: Int = this match
+      case Num(n)     => n
+      case Pair(l, r) => 3 * l.magnitude + 2 * r.magnitude 
+      
     
   object SnailNumber: 
     
@@ -78,25 +94,18 @@ object aay18 extends App:
     def parseSnailNumber(s: String): SnailNumber = snailnumber.run(s) match
       case Right(v) => v
       case Left(e) => sys.error(e)
-      
-    @tailrec
-    def deduce(sn: SnailNumber): SnailNumber =
-      val x = sn.explode
-      val next = x.splitOne
-      if next == sn then next else deduce(next)
   
-//  private val res1 = input.tail.foldLeft(input.head) { (res: SnailNumber, in: SnailNumber) =>
-//    println(res)
-//    println("-------")
-//    SnailNumber.deduce(res ++ in)
-//  }
-  println(SnailNumber.deduce(input.head))
-  private val answer1 = None
+  private val res1 = input.tail.foldLeft(input.head) { (res: SnailNumber, in: SnailNumber) => (res ++ in).reduce}
+  private val answer1 = res1.magnitude  
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
-
-  private val answer2 = None
+  
+  private val res2 = input.foldLeft(List.empty[Int]){ (res: List[Int], in: SnailNumber) => 
+    input.flatMap{ (f: SnailNumber) => 
+      List((f ++ in).reduce.magnitude, (in ++ f).reduce.magnitude)
+    } ++ res
+  }
+  private val answer2 = res2.max
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
