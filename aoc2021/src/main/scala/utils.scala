@@ -450,9 +450,10 @@ object NumberTheory:
     val bin: Char = "01"(rem)
     if div == 0 then (acc + bin).reverse else toBinary(div, acc + bin)
 
-  def binaryToDec(binary: String): Int =
+
+  def binaryToDec(binary: String): Long =
     val l: Int = binary.length
-    binary.foldLeft((1, 0)) { (res: (Int, Int), in: Char) =>
-      val toAdd: Int = math.pow(2, l - res._1).toInt * Map('1' -> 1, '0' -> 0)(in)
+    binary.foldLeft((1, 0L)) { (res: (Int, Long), in: Char) =>
+      val toAdd: Long = math.pow(2, l - res._1).toLong * Map('1' -> 1L, '0' -> 0L)(in)
       (res._1 + 1, res._2 + toAdd)
     }._2
