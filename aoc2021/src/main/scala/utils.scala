@@ -84,26 +84,57 @@ object Grid2D:
       val (width, flat) = convertToFlatGrid(grid, f)
       flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
-  case class Line(delta: Int, b: Int):
-    val fx: Int => Int = (x: Int) => delta * x + b
-    val fy: Int => Int = (y: Int) => (y - b) / delta
 
-    def fyBounded(min: Int, max: Int): Int => Option[Int] =
-      (y: Int) =>
-        val x: Int = fy(y)
-        Option.when(x >= min && x <= max)(x)
+  enum LinearEq:
+    case Fx, Fy
 
-    def intersect(that: Line): Option[Point] =
-      if delta == that.delta then None // parallel (identical) lines no intersection possible
+  /**
+   * Below describes the equations for: 
+   * 
+   * - y = ax + b (Fx) 
+   * 
+   * - x = by + c (Fy)
+   */
+  case class Line(delta: Double, b: Double, form: LinearEq):
+    
+    import LinearEq.*
+    
+    val getFunction: Double => Double = (d: Double) => delta * d + b
+    
+    def getRange(min: Int, maxInclusive: Int): Vector[(Double, Double)] =
+      val range: Vector[Double] = (min to maxInclusive).toVector.map(_.toDouble)
+      range.map { (i: Double) => this.form match
+        case Fx => (i, getFunction(i))
+        case Fy => (getFunction(i), i)
+      }
+    
+    private def intersectSame(d1: Double, d2: Double, b1: Double, b2: Double): Option[(Double, Double)] =
+      if d1 == d2 then None // parallel (identical) lines no intersection possible
       else
-        val x = (that.b - b) / (delta - that.delta)
-        Some(Point(x, fx(x)))
+        val x = (b2 - b1) / (d1 - d2)
+        Some((x, getFunction(x)))
+        
+    private def intersectOther(d1: Double, d2: Double, b1: Double, b2: Double): Option[(Double, Double)] =
+      if d1 * d2 == 1 then None  // parallel (identical) lines no intersection possible
+      else 
+        val x = (d2 * b1 + b2) / (1 - d1 * d2)
+        Some((x, getFunction(x)))
+    
+    def intersect(that: Line): Option[(Double, Double)] = 
+      if this.form == that.form then intersectSame(this.delta, that.delta, this.b, that.b)
+      else if this.form == Fy then intersectOther(that.delta, this.delta, that.b, this.b)
+      else intersectOther(this.delta, that.delta, this.b, that.b)
+      
 
   object Line:
     def makeLine(p1: Point, p2: Point): Line =
-      val delta: Int = (p2.y - p1.y) / (p2.x - p1.x)
-      val b: Int = p1.y - (delta * p1.x)
-      Line(delta, b)
+      if p1.x == p2.x      then Line(0, p2.x, LinearEq.Fy)
+      else if p1.y == p2.y then Line(0, p1.y, LinearEq.Fx)
+      else 
+        val delta: Double = (p2.y - p1.y) / (p2.x - p1.x)
+        val b: Double = p1.y - (delta * p1.x)
+        Line(delta, b, LinearEq.Fx)
+  
 
 object FlatGrid:
 
@@ -413,10 +444,12 @@ object GameTree:
 
 object NumberTheory:
   import math.Integral.Implicits.*
+  @tailrec
   def toBinary(in: Int, acc: String = ""): String =
     val (div, rem) = in /% 2
     val bin: Char = "01"(rem)
     if div == 0 then (acc + bin).reverse else toBinary(div, acc + bin)
+
 
   def binaryToDec(binary: String): Long =
     val l: Int = binary.length
