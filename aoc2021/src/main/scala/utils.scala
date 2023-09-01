@@ -307,16 +307,9 @@ object Algorithms:
   end GraphTraversal
   
   object Matrix:
-
-    def dists[A, B](in: IndexedSeq[A])(f: (A, A) => B): Map[IndexedSeq[B], A] =
-      in.foldLeft((in, Map.empty)) { (res: (IndexedSeq[A], Map[IndexedSeq[B], A]), in) =>
-        (res._1, res._2.updated(res._1.map(a => f(a, in)), in))
-      }._2
-
-
     def comparisonMatrix[A, B](in: IndexedSeq[A])(f: (A, A) => B): Map[(A, A), B] =
       in.foldLeft((in.toSet, Map.empty)) { (res: (Set[A], Map[(A, A), B]), in: A) =>
-        (res._1, res._2 ++ res._1.map((a: A) => (in, a) -> f(a, in)).toMap)
+        (res._1 - in, res._2 ++ res._1.map((a: A) => (in, a) -> f(a, in)).toMap)
       }._2
     
 
@@ -471,3 +464,23 @@ object NumberTheory:
       val toAdd: Long = math.pow(2, l - res._1).toLong * Map('1' -> 1L, '0' -> 0L)(in)
       (res._1 + 1, res._2 + toAdd)
     }._2
+
+object Grid3D:
+
+  case class Point3D(x: Int, y: Int, z: Int):
+
+    def distanceToPoint(that: Point3D): Double =
+      math.sqrt(math.pow(that.x - x, 2) + math.pow(that.y - y, 2) + math.pow(that.z - z, 2))
+
+    def -(that: Point3D): Point3D = Point3D(x - that.x, y - that.y, z - that.z)
+    def +(that: Point3D): Point3D = Point3D(x + that.x, y + that.y, z + that.z)
+
+    def rotations: Vector[Point3D] =
+      Vector(
+        Point3D(+x, +y, +z), Point3D(-y, +x, +z), Point3D(-x, -y, +z), Point3D(+y, -x, +z)
+        , Point3D(-x, +y, -z), Point3D(+y, +x, -z), Point3D(+x, -y, -z), Point3D(-y, -x, -z)
+        , Point3D(-z, +y, +x), Point3D(-z, +x, -y), Point3D(-z, -y, -x), Point3D(-z, -x, +y)
+        , Point3D(+z, +y, -x), Point3D(+z, +x, +y), Point3D(+z, -y, +x), Point3D(+z, -x, -y)
+        , Point3D(+x, -z, +y), Point3D(-y, -z, +x), Point3D(-x, -z, -y), Point3D(+y, -z, -x)
+        , Point3D(+x, +z, -y), Point3D(-y, +z, -x), Point3D(-x, +z, +y), Point3D(+y, +z, +x)
+      )
