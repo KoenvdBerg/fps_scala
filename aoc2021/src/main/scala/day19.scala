@@ -26,6 +26,7 @@ object aay19 extends App:
           res.dropRight(1).appended(res.last.add(p))
     }
     
+  // todo: move case class to Utils
   case class Point3D(x: Int, y: Int, z: Int):
     
     def distanceToPoint(that: Point3D): Double =
@@ -33,7 +34,18 @@ object aay19 extends App:
       
     def -(that: Point3D): Point3D = Point3D(x - that.x, y - that.x, z - that.z)
     
-    def rotations: Vector[Point3D] = ??? 
+    def rotations: Vector[Point3D] = ???
+//
+//    def orientations(pos: Vec3): Seq[Vec3] =
+//      val Vec3(x, y, z) = pos
+//      Seq(
+//        Vec3(+x, +y, +z), Vec3(-y, +x, +z), Vec3(-x, -y, +z), Vec3(+y, -x, +z)
+//        , Vec3(-x, +y, -z), Vec3(+y, +x, -z), Vec3(+x, -y, -z), Vec3(-y, -x, -z)
+//        , Vec3(-z, +y, +x), Vec3(-z, +x, -y), Vec3(-z, -y, -x), Vec3(-z, -x, +y)
+//        , Vec3(+z, +y, -x), Vec3(+z, +x, +y), Vec3(+z, -y, +x), Vec3(+z, -x, -y)
+//        , Vec3(+x, -z, +y), Vec3(-y, -z, +x), Vec3(-x, -z, -y), Vec3(+y, -z, -x)
+//        , Vec3(+x, +z, -y), Vec3(-y, +z, -x), Vec3(-x, +z, +y), Vec3(+y, +z, +x)
+//      )
     // todo: user permutations here to get the rotations
 
       
@@ -47,6 +59,7 @@ object aay19 extends App:
     
   object Scanner:
 
+    // todo: move below functions to case class of Scanner
     def findOverlap(scannerA: Scanner, scannerB: Scanner): Map[Point3D, Point3D] =
       val innerDistA = scannerA.getInnerDistances
       val innerDistB = scannerB.getInnerDistances
@@ -62,6 +75,7 @@ object aay19 extends App:
       if overlap.isEmpty then None
       else 
         // todo: generate proper rotations functions
+        // todo: performing subtraction on points should give the orientation that is constant
         val x = overlap.map((p1, p2) => Vector(p1.x + p2.x, p1.x - p2.x)).transpose.find(p => p.head == p.last).map(_.head)
         val y = overlap.map((p1, p2) => Vector(p1.y + p2.y, p1.y - p2.y)).transpose.find(p => p.head == p.last).map(_.head)
         val z = overlap.map((p1, p2) => Vector(p1.z + p2.z, p1.z - p2.z)).transpose.find(p => p.head == p.last).map(_.head)
