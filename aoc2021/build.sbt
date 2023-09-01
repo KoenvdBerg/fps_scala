@@ -6,3 +6,5 @@ lazy val root = (project in file("."))
   .settings(
     name := "aoc2021"
   )
+
+libraryDependencies += "com.lihaoyi" %% "pprint" % "0.8.1"

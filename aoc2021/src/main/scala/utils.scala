@@ -305,6 +305,20 @@ object Algorithms:
       go(x, List.empty[N])
 
   end GraphTraversal
+  
+  object Matrix:
+
+    def dists[A, B](in: IndexedSeq[A])(f: (A, A) => B): Map[IndexedSeq[B], A] =
+      in.foldLeft((in, Map.empty)) { (res: (IndexedSeq[A], Map[IndexedSeq[B], A]), in) =>
+        (res._1, res._2.updated(res._1.map(a => f(a, in)), in))
+      }._2
+
+
+    def comparisonMatrix[A, B](in: IndexedSeq[A])(f: (A, A) => B): Map[(A, A), B] =
+      in.foldLeft((in.toSet, Map.empty)) { (res: (Set[A], Map[(A, A), B]), in: A) =>
+        (res._1, res._2 ++ res._1.map((a: A) => (in, a) -> f(a, in)).toMap)
+      }._2
+    
 
 
 object MapUtils:
