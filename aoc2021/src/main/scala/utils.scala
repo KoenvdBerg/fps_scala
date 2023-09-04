@@ -471,6 +471,9 @@ object Grid3D:
 
     def distanceToPoint(that: Point3D): Double =
       math.sqrt(math.pow(that.x - x, 2) + math.pow(that.y - y, 2) + math.pow(that.z - z, 2))
+      
+    def manhattan(that: Point3D): Int =
+      math.abs(x - that.x) + math.abs(y - that.y) + math.abs(z - that.z)
 
     def -(that: Point3D): Point3D = Point3D(x - that.x, y - that.y, z - that.z)
     def +(that: Point3D): Point3D = Point3D(x + that.x, y + that.y, z + that.z)
