@@ -17,11 +17,10 @@ object day02 extends App:
 
     def parse(s: String): Game = s match
       case s"Game $id: $tosplit" =>
-        val cubeSets: Seq[String] = tosplit.split(";")
-          .flatMap(_.strip().split(",").map(_.strip()))
+        val cubeSets: Seq[String] = tosplit.split(";").flatMap(_.split(","))
         val cubes: Vector[Cube] = cubeSets
           .map { (c: String) =>
-            val cube1 = c.split(" ")
+            val cube1 = c.strip.split(" ")
             Cube(cube1.last, cube1.head.toLong)
           }.toVector
         Game(id.toInt, cubes)
