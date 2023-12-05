@@ -111,5 +111,6 @@ object day05 extends App:
     res.flatMap(r => R.processSeedR(r, in))
   }
 
+  // below filtering out the 0 range because that's the last range to have no hit. The range right after that has the answer.
   val answer2 = res2.filter(_.min != 0).minBy(_.min).min
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
