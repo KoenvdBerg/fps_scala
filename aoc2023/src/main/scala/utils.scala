@@ -400,5 +400,36 @@ object NumberTheory:
     if div == 0 then (acc + bin).reverse else toBinary(div, acc + bin)
     
     
+object RangeUtil:
 
+  case class R(min: Long, max: Long):
 
+    def overlap(that: R): Option[R] =
+      if max < that.min then None
+      else if min > that.max then None
+      else Some(R(Vector(min, that.min).max, Vector(max, that.max).min))
+
+    def nonOverlap(that: R): Vector[R] =
+      if min >= that.min && max <= that.max then Vector.empty
+      else if min < that.min && max > that.max then Vector(R(min, that.min - 1), R(that.max + 1, max))
+      else if min < that.min then Vector(R(min, that.min - 1))
+      else Vector(R(that.max + 1, max))
+
+    def filter(hits: Vector[R]): Vector[R] =
+      if hits.isEmpty then Vector(this)
+      else if hits.length == 1 then nonOverlap(hits.head)
+      else
+        val before = if min < hits.head.min then Some(R(min, hits.head.min - 1)) else None
+        val after = if max > hits.last.max then Some(R(hits.last.max + 1, max)) else None
+        val between = hits.sliding(2).toVector.flatMap(v =>
+          val diff = v.last.min - v.head.max
+          if diff <= 1 then None
+          else Some(R(v.head.max + 1, v.last.min - 1))
+        )
+
+        Vector(before, after).flatten ++ between
+
+    def overlappingRanges(those: Vector[R]): Vector[(R, Boolean)] =
+      val hits: Vector[R] = those.flatMap{ (that: R) => overlap(that) }
+      val noHits: Vector[R] = filter(hits)
+      hits.map(r => (r, true)) ++ noHits.map(r => (r, false))
