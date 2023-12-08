@@ -9,20 +9,58 @@ object day08 extends App:
 
   private val start1: Long =
     System.currentTimeMillis
+    
+  case class PathWay(l: String, r: String)
 
-  private val input: List[String] =
-    Source
+  private val (instructions, waypoints): (Vector[Char], Map[String, PathWay]) =
+    
+    def parsePaths(s: String): Option[(String, PathWay)] = s match
+      case s"$from = ($l, $r)" => Some((from, PathWay(l, r)))
+      case _ => None
+      
+    val in = Source
       .fromResource(s"day$day.txt")
       .getLines
       .toList
+    
+    val waypoints: Map[String, PathWay] = in.flatMap(parsePaths).toMap
+    val instructions: Vector[Char] = in.head.toVector
+    (instructions, waypoints)
+    
+  def step(cur: String, ins: Char): String = ins match
+    case 'L' => waypoints(cur).l
+    case 'R' => waypoints(cur).r
+    case _ => sys.error(s"cannot do $cur and $ins")
 
+  def walk(ins: Vector[Char], start: String): Long =
 
-  private val answer1 = ???
+    val l = ins.length
+    
+    def go(i: Int, cur: String, count: Long): Long =
+      val instruction = ins(i)
+      val next = step(cur, instruction)
+      if next.endsWith("Z") then count
+      else go((i + 1) % l, next, count + 1)
+  
+    go(0, start, 1)
+  
+  private val answer1 = walk(instructions, "AAA")
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
+  def overlap(in: Long, that: Long): Long =
+
+    @tailrec
+    def go(i: Int): Long =
+      val t = in * i
+      if t % that == 0 then i
+      else go(i + 1)
+    
+    go(1) * in
 
   private val start2: Long =
     System.currentTimeMillis
-
-  private val answer2 = ???
-  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
+    
+  private val starts: Vector[String] = waypoints.keys.filter(_.endsWith("A")).toVector
+  private val res2: Vector[Long] = starts.map(s => walk(instructions, s))
+  private val answer2 = res2.foldLeft(1L) { (res: Long, in: Long) => overlap(res, in) }
+  println(s"Answer day $day part 1: ${answer2} [${System.currentTimeMillis - start2}ms]")
