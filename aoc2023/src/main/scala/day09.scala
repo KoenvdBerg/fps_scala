@@ -19,10 +19,11 @@ object day09 extends App:
 
   def goDownIn(history: Vector[Long]): Vector[Vector[Long]] =
 
+    @tailrec
     def go(cur: Vector[Long], res: Vector[Vector[Long]]): Vector[Vector[Long]] =
       if cur.forall(_ == 0) then cur +: res
       else
-        val next = cur.sliding(2).map(f => f(1) - f(0)).toVector
+        val next: Vector[Long] = cur.sliding(2).map(f => f(1) - f(0)).toVector
         go(next, cur +: res)
 
     go(history, Vector.empty)
@@ -34,11 +35,11 @@ object day09 extends App:
       if part == 2 then layer.head - res else res + layer.last
     }
 
-  private val answer1 = input.map(hist => extrapolate(hist, 1)).sum
+  private val answer1: Long = input.map(hist => extrapolate(hist, 1)).sum
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
 
-  private val answer2 = input.map(hist => extrapolate(hist, 2)).sum
+  private val answer2: Long = input.map(hist => extrapolate(hist, 2)).sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
