@@ -1,13 +1,11 @@
-import aoc2022.Grid2D
-
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
 
-object aday11 extends App:
+object day11 extends App:
 
   private val day: String =
-    this.getClass.getName.drop(4).init
+    this.getClass.getName.drop(3).init
 
   private val start1: Long =
     System.currentTimeMillis
