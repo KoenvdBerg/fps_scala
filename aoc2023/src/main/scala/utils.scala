@@ -433,3 +433,9 @@ object RangeUtil:
       val hits: Vector[R] = those.flatMap{ (that: R) => overlap(that) }
       val noHits: Vector[R] = filter(hits)
       hits.map(r => (r, true)) ++ noHits.map(r => (r, false))
+
+object Optim:
+  case class Memoize[I, O](f: I => O):
+
+    private val cache: mutable.Map[I, O] = new mutable.HashMap[I, O]
+    def getMemoizedf: I => O = (in: I) => cache.getOrElseUpdate(in, f(in))
