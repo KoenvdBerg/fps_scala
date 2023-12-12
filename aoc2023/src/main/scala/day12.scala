@@ -28,22 +28,24 @@ object day12 extends App:
      * (3) If at any time you run out of possible placements of a row that satisfy the constraints, then the puzzle
      * has no solution. Otherwise, when you run out of rowns, you've solved the problem.
      */
+
+    def generateExp(arr: Arrangement): Vector[String] =
+      val currentGroup: Int = arr.known.head
+      val other: Vector[Int] = arr.known.tail
+      val lotLeft: Int = other.sum + other.length // require other.length '.' + other.sum of '#'
+      (0 to arr.unknown.length - lotLeft - currentGroup)
+        .map(b => "." * b + "#" * currentGroup + ".").toVector
+
     def solve(arr: Arrangement): Long =
       if arr.known.isEmpty then
         if arr.unknown.forall(p => ".?".contains(p)) then 1L
         else 0L
-
       else
-        val currentGroup: Int = arr.known.head
-        val other: Vector[Int] = arr.known.tail
-        val lotLeft: Int = other.sum + other.length  // require other.length '.' + other.sum of '#'
-        val expectations: Vector[String] = (0 to arr.unknown.length - lotLeft - currentGroup)
-          .map(b => "." * b + "#" * currentGroup + ".").toVector
         val total: Vector[Long] =
           for
-            exp <- expectations
+            exp <- generateExp(arr)
             if exp.zip(arr.unknown).forall((c1, c2) => c1 == c2 | c2 == '?')
-          yield solveMemoized(Arrangement(arr.unknown.drop(exp.length), other))
+          yield solveMemoized(Arrangement(arr.unknown.drop(exp.length), arr.known.tail))
 
         total.sum
 
