@@ -144,20 +144,15 @@ object FlatGrid:
     grid.map(f).mkString("").grouped(width).mkString("\n")
 
   def rotateClockWise[A](grid: IndexedSeq[A], width: Int): (IndexedSeq[A], Int) =
-    val is: Range = grid.indices
-    val rotated = (0 until width).foldLeft(IndexedSeq.empty) { (res: IndexedSeq[Int], i: Int) =>
-      val layer = is.filter(ri => ri % width == i)
-      res ++ layer.reverse
-    }
-    (rotated.map(grid), grid.length / width)
+    val gl = grid.length
+    val rotated = (0 until width).flatMap(i => Range(i, gl, width).reverse)
+    (rotated.map(grid), gl / width)
 
-  def rotateCounterClockwise[A](grid: IndexedSeq[A], width: Int): (IndexedSeq[A], Int) =
-    val is: Range = grid.indices
-    val rotated = (0 until width).reverse.foldLeft(IndexedSeq.empty) { (res: IndexedSeq[Int], i: Int) =>
-      val layer = is.filter(ri => ri % width == i)
-      res ++ layer
-    }
-    (rotated.map(grid), grid.length / width)
+  def rotateCounterClockWise[A](grid: IndexedSeq[A], width: Int): (IndexedSeq[A], Int) =
+    val gl = grid.length
+    val rotated = (0 until width).reverse.flatMap(i => Range(i, gl, width))
+    (rotated.map(grid), gl / width)
+
 
 object Algorithms:
 
