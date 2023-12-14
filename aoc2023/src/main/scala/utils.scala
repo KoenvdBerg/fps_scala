@@ -143,6 +143,21 @@ object FlatGrid:
   def printFlatGrid[A](grid: IndexedSeq[A], width: Int)(f: A => Char): String =
     grid.map(f).mkString("").grouped(width).mkString("\n")
 
+  def rotateClockWise[A](grid: IndexedSeq[A], width: Int): (IndexedSeq[A], Int) =
+    val is: Range = grid.indices
+    val rotated = (0 until width).foldLeft(IndexedSeq.empty) { (res: IndexedSeq[Int], i: Int) =>
+      val layer = is.filter(ri => ri % width == i)
+      res ++ layer.reverse
+    }
+    (rotated.map(grid), grid.length / width)
+
+  def rotateCounterClockwise[A](grid: IndexedSeq[A], width: Int): (IndexedSeq[A], Int) =
+    val is: Range = grid.indices
+    val rotated = (0 until width).reverse.foldLeft(IndexedSeq.empty) { (res: IndexedSeq[Int], i: Int) =>
+      val layer = is.filter(ri => ri % width == i)
+      res ++ layer
+    }
+    (rotated.map(grid), grid.length / width)
 
 object Algorithms:
 
