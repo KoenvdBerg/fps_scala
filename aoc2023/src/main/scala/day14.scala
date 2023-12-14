@@ -4,10 +4,10 @@ import scala.annotation.tailrec
 import aoc2022.FlatGrid
 import aoc2022.CycleFinder.Cycle
 
-object aday14 extends App:
+object day14 extends App:
 
   private val day: String =
-    this.getClass.getName.drop(4).init
+    this.getClass.getName.drop(3).init
 
   private val start1: Long =
     System.currentTimeMillis
