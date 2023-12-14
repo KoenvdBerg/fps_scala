@@ -23,7 +23,7 @@ object aday14 extends App:
   case class Field(rocks: Vector[Char], rowSize: Int):
 
     @tailrec
-    def rollNorth(i: Int, cur: Int): Field =
+    private def rollNorth(i: Int, cur: Int): Field =
       val northi = i - rowSize
       if northi >= 0 && rocks(northi) == '.' then rollNorth(northi, cur)
       else if cur == i then this
