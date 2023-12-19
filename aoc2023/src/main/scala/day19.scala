@@ -1,5 +1,3 @@
-import com.sun.tools.javac.api.JavacTaskPool.Worker
-
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
@@ -18,20 +16,11 @@ object aday19 extends App:
       case "m" => m
       case "a" => a
       case "s" => s
-      case _ => sys.error(s"cannot get $key")
+      case _ => 1L
 
     def total: Long = x + m + a + s
 
-  object Rating:
-
-    def focusOn(partName: String, v: Long): Rating = partName match
-      case "x" => Rating(v, 0, 0, 0)
-      case "m" => Rating(0, v, 0, 0)
-      case "a" => Rating(0, 0, v, 0)
-      case "s" => Rating(0, 0, 0, v)
-      case _ => sys.error(s"cannot focus on $partName")
-
-  case class Operation(part: String, op: Rating => Boolean, ret: String, comparison: Char, v: Long)
+  case class Operation(part: String, op: Long => Boolean, ret: String)
 
   private val (ratings, workflows): (List[Rating], Map[String, List[Operation]]) =
 
@@ -45,9 +34,9 @@ object aday19 extends App:
 
     def parseOp(s: String): List[Operation] =
       s.split(",").toList.map{
-        case s"$part<$lo:$ret" => Operation(part, (r: Rating) => r.get(part) < lo.toLong, ret, '<', lo.toLong)
-        case s"$part>$lo:$ret" => Operation(part, (r: Rating) => r.get(part) > lo.toLong, ret, '>', lo.toLong)
-        case s"$ret" => Operation("all", (r: Rating) => true, ret, '=', -1)
+        case s"$part<$lo:$ret" => Operation(part, (l: Long) => l < lo.toLong, ret)
+        case s"$part>$lo:$ret" => Operation(part, (l: Long) => l > lo.toLong, ret)
+        case s"$ret" => Operation("all", (_: Long) => true, ret)
       }
 
     val in = Source
@@ -63,7 +52,7 @@ object aday19 extends App:
     @tailrec
     def go(flowId: String): String =
       val work: List[Operation] = workflows(flowId)
-      val i = work.indexWhere(operation => operation.op(rating))
+      val i = work.indexWhere(operation => operation.op(rating.get(operation.part)))
       val nextId = work(i).ret
       if nextId == "R" || nextId == "A" then nextId
       else go(nextId)
@@ -78,18 +67,51 @@ object aday19 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
+  enum WorkTree:
+    case End(result: String)
+    case Node(key: String, ops: List[Operation], childs: List[WorkTree])
+
+  object WorkTree:
+
+    def fromWorkflows(cur: String, workflows: Map[String, List[Operation]]): WorkTree =
+      val work = workflows.get(cur)
+      work match
+        case Some(w) => Node(cur, w, w.map(op => fromWorkflows(op.ret, workflows)))
+        case None => End(cur)
+
+    def processNode(operations: List[Operation], input: Map[String, Vector[Long]]): Vector[Map[String, Vector[Long]]] =
+      operations.foldLeft(Vector(input)) { (res: Vector[Map[String, Vector[Long]]], o: Operation) =>
+        if o.part == "all" then res
+        else
+          val r: Map[String, Vector[Long]] = res.last
+          val nextV1 = r.updated(o.part, r(o.part).takeWhile(o.op))
+          val nextV2 = r.updated(o.part, r(o.part).dropWhile(o.op))
+          res.dropRight(1) ++ Vector(nextV1, nextV2)
+      }
 
 
-  def disect(workflows: Map[String, List[Operation]]): Int =
 
-    def go(flowId: String, stack: Map[String, Range]): Map[String, Range] =
-      val work: List[Operation] = workflows(flowId)
+    def processWorkTree(input: Map[String, Vector[Long]], workTree: WorkTree): Map[String, Vector[WorkTree]] = workTree match
+      case Node(key, ops, childs) =>
+        val goDown = processNode(ops, input)
+        println(goDown)
+        //val total = goDown.indices.map(i => processWorkTree(goDown(i), childs(i)))
+        //pprint.pprintln(total)
+        Map("k" -> Vector(WorkTree.End("kjd")))
+
+      case End(r) => input.map((s, vv) => (s, vv.map(l => End(r))))
 
 
 
 
 
-
+  private val test = WorkTree.fromWorkflows("in", workflows)
+  private val start: Map[String, Range] = Map(
+    "s" -> (1 to 4000),
+    "a" -> (1 to 4000),
+    "m" -> (1 to 4000),
+    "x" -> (1 to 4000))
+  private val res2 = WorkTree.processWorkTree(start, test)
   private val answer2 = "l;ds"
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
 
@@ -119,3 +141,32 @@ object aday19 extends App:
 //  } yield Rating(0, 0, j, i)
 //
 //  test.map(r => processRating(r, workflows))
+
+//case class PartValue(i: Int, ret: String, affected: Boolean)
+//
+//def disectNext(op: Operation, stack: Vector[PartValue], part: String): Vector[PartValue] = op match
+//  case Operation.Op(p, op, ret) if p == part =>
+//    stack.map(pv => if !pv.affected && op(pv.i) then PartValue(pv.i, ret, true) else pv)
+//  case Operation.Op(_, _, _) => stack
+//  case Operation.Ret(_, ret) => stack.map(pv => if !pv.affected then PartValue(pv.i, ret, true) else pv)
+//
+//
+//// todo: remove int from Vector[(Int, String)]
+//def disect(workflows: Map[String, List[Operation]]): Map[String, Vector[PartValue]] =
+//
+//  val startStack: Map[String, Vector[PartValue]] = Vector("x", "m", "a", "s").map(p => (p, (1 to 4000).toVector.map(i => PartValue(i, "", false)))).toMap
+//
+//
+//  def go(flowId: String, stack: Map[String, Vector[PartValue]]): Map[String, Vector[PartValue]] =
+//    val work: List[Operation] = workflows(flowId)
+//    val next: Map[String, Vector[PartValue]] = work.foldLeft(stack) { (res: Map[String, Vector[PartValue]], op: Operation) =>
+//      Vector("x", "m", "a", "s").foldLeft(res) { (innerRes: Map[String, Vector[PartValue]], part: String) =>
+//        innerRes.updated(part, disectNext(op, innerRes(part), part))
+//      }
+//    }
+//    println(next)
+//
+//
+//    Map("koen" -> Vector(PartValue(1, "sdkl", true)))
+//
+//  go("in", startStack)
