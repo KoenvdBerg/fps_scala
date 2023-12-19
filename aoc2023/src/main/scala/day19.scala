@@ -20,7 +20,7 @@ object aday19 extends App:
 
     def total: Long = x + m + a + s
 
-  case class Operation(part: String, op: Long => Boolean, ret: String)
+  case class Operation(part: String, op: Long => Boolean, ret: String, raw: String, comp: Char, v: Int)
 
   private val (ratings, workflows): (List[Rating], Map[String, List[Operation]]) =
 
@@ -33,10 +33,10 @@ object aday19 extends App:
       case _ => None
 
     def parseOp(s: String): List[Operation] =
-      s.split(",").toList.map{
-        case s"$part<$lo:$ret" => Operation(part, (l: Long) => l < lo.toLong, ret)
-        case s"$part>$lo:$ret" => Operation(part, (l: Long) => l > lo.toLong, ret)
-        case s"$ret" => Operation("all", (_: Long) => true, ret)
+      s.split(",").toList.map{ (st: String) => st match
+        case s"$part<$lo:$ret" => Operation(part, (l: Long) => l < lo.toLong, ret, st, '<', lo.toInt)
+        case s"$part>$lo:$ret" => Operation(part, (l: Long) => l > lo.toLong, ret, st, '>', lo.toInt)
+        case s"$ret" => Operation("all", (_: Long) => true, ret, st, '-', -1)
       }
 
     val in = Source
@@ -79,31 +79,50 @@ object aday19 extends App:
         case Some(w) => Node(cur, w, w.map(op => fromWorkflows(op.ret, workflows)))
         case None => End(cur)
 
-    def processNode(operations: List[Operation], input: Map[String, Vector[Long]]): Vector[Map[String, Vector[Long]]] =
-      operations.foldLeft(Vector(input)) { (res: Vector[Map[String, Vector[Long]]], o: Operation) =>
+    def splitRanges(operations: List[Operation], input: Map[String, Range]): Vector[Map[String, Range]] =
+      operations.foldLeft(Vector(input)) { (res: Vector[Map[String, Range]], o: Operation) =>
         if o.part == "all" then res
         else
-          val r: Map[String, Vector[Long]] = res.last
-          val nextV1 = r.updated(o.part, r(o.part).takeWhile(o.op))
-          val nextV2 = r.updated(o.part, r(o.part).dropWhile(o.op))
-          res.dropRight(1) ++ Vector(nextV1, nextV2)
+          val r: Map[String, Range] = res.last
+          val thisr = r(o.part)
+          val cur = if o.comp == '<' then r.updated(o.part, thisr.min to o.v)
+          else r.updated(o.part, o.v to thisr.max)
+          val next = if o.comp == '<' then r.updated(o.part, o.v to thisr.max)
+          else r.updated(o.part, thisr.min to o.v)
+          res.dropRight(1) ++ Vector(cur, next)
       }
 
+    def getLengths(input: Map[String, Range]): Map[String, Int] =
+      input.map((v, vv) => (v, vv.length))
+
+    // todo: track the ranges just like day10
+    // todo: make sure to add the ranges instead of splitting them
+    // todo: just add the A ones, Nil for R
+    def processWorkTree(input: Map[String, Range], workTree: WorkTree): Map[String, List[(Range, String)]] =
+
+      val helper = Map("s" -> List.empty, "x" -> List.empty, "m" -> List.empty, "a" -> List.empty)
+
+      def recur(in: Map[String, Range], workTree: WorkTree): Map[String, List[(Range, String)]] = workTree match
+        case Node(key, ops, childs) =>
+          val goDown: Vector[Map[String, Range]] = splitRanges(ops, in)
+
+          println(s"Round: $key")
+          ops.indices.foreach(i =>
+            println(s"${ops(i).raw}    --> ${goDown(i)}")
+          )
+          val total = goDown.indices.map(i => recur(goDown(i), childs(i)))
+          val ret = total.foldLeft(helper) { (res: Map[String, List[(Range, String)]], inn: Map[String, List[(Range, String)]]) =>
+            helper.keys.map(k => (k, res(k) ++ inn(k))).toMap
+          }
+          ret
+
+        case End(r) =>
+          if r == "A" then in.map((part, rr) => (part, List(rr -> "A")))
+          else in.map((part, rr) => (part, List(rr -> "R")))
 
 
-    def processWorkTree(input: Map[String, Vector[Long]], workTree: WorkTree): Map[String, Vector[WorkTree]] = workTree match
-      case Node(key, ops, childs) =>
-        val goDown = processNode(ops, input)
-        println(goDown)
-        //val total = goDown.indices.map(i => processWorkTree(goDown(i), childs(i)))
-        //pprint.pprintln(total)
-        Map("k" -> Vector(WorkTree.End("kjd")))
 
-      case End(r) => input.map((s, vv) => (s, vv.map(l => End(r))))
-
-
-
-
+      recur(input, workTree)
 
   private val test = WorkTree.fromWorkflows("in", workflows)
   private val start: Map[String, Range] = Map(
@@ -112,6 +131,10 @@ object aday19 extends App:
     "m" -> (1 to 4000),
     "x" -> (1 to 4000))
   private val res2 = WorkTree.processWorkTree(start, test)
+
+  println(res2)
+
+
   private val answer2 = "l;ds"
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
 
