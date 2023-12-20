@@ -5,10 +5,10 @@ import math.*
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 
-object aday20 extends App:
+object day20 extends App:
 
   private val day: String =
-    this.getClass.getName.drop(4).init
+    this.getClass.getName.drop(3).init
 
   private val start1: Long =
     System.currentTimeMillis
