@@ -1,5 +1,3 @@
-import aday20.Module.{Broadcast, Conjunction, FlipFlop, Pulse, determineConjunctionStartStates, network}
-
 import scala.io.*
 import math.*
 import scala.annotation.tailrec
@@ -13,6 +11,8 @@ object day20 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
+
+  case class Pulse(receiver: String, signal: String, sender: String)
 
   enum Module:
     case FlipFlop(name: String, state: String)
@@ -76,7 +76,6 @@ object day20 extends App:
     case class Result(low: Long, high: Long):
       def add(signal: String, n: Int): Result = if signal == "low" then copy(low = low + n) else copy(high = high + n)
       def +(that: Result): Result = Result(low + that.low, high + that.high)
-    case class Pulse(receiver: String, signal: String, sender: String)
 
     def pressButton(mods: Map[String, Module], wiring: Map[String, List[String]], interest: Option[String]): (Map[String, Module], Result) =
 
