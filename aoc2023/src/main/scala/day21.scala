@@ -33,34 +33,22 @@ object aday21 extends App:
         (x-1,y),
         (x+1,y))
 
-    private def loopAround(x: Int, y: Int): (Int, Int) =
-      if inBounds(x, y) then (x, y)
-      else if x < 0 then (maxX - 1, y)
-      else if x >= maxX then (0, y)
-      else if y < 0 then (x, maxY - 1)
-      else if y >= maxY then (x, 0)
-      else sys.error(s"cannot loop for $x and $y")
-
-
-    def gardenPath(part: Int): Graph[(Int, Int)] =
+    def gardenPath: Graph[(Int, Int)] =
       (x: Int, y: Int) =>
         val ns: Vector[(Int, Int)] = neighbours(x, y)
-        if part == 1 then
-          ns
-            .filter((x, y) => inBounds(x, y))
-            .filter((x, y) => field(y)(x) != '#')
-            .map(c => c -> 1).toMap
-        else
-          ns
-            .map((x, y) => loopAround(x, y))
-            .filter((x, y) => field(y)(x) != '#')
-            .map(c => c -> 1).toMap
+        ns
+          .filter((x, y) => inBounds(x, y))
+          .filter((x, y) => field(y)(x) != '#')
+          .map(c => c -> 1).toMap
 
     def startPoint: (Int, Int) = (for {
       y <- Range(0, maxY)
       x <- Range(0, maxX)
       if field(y)(x) == 'S'
     } yield (x, y)).head
+
+    // upl, upr, downl, downr
+    val starts: Vector[(Int, Int)] = Vector((0, 0), (maxX-1, 0), (maxX-1, maxY-1), (0, maxY - 1))
 
     def getPrintable(interest: Vector[(Int, Int)]): String =
       interest.foldLeft(field) {(res: Vector[String], in: (Int, Int)) =>
@@ -70,7 +58,7 @@ object aday21 extends App:
 
   private val stepNum = 64
   private val fieldHelper = GardenNavigator(input)
-  private val res1 = GraphTraversal.dijkstra(fieldHelper.gardenPath(1))(fieldHelper.startPoint)._1
+  private val res1 = GraphTraversal.dijkstra(fieldHelper.gardenPath)(fieldHelper.startPoint)._1
   private val answer1 = res1.count(i => i._2 <= stepNum && i._2 % 2 == 0)
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
@@ -78,59 +66,53 @@ object aday21 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-  val stepSize = 26501365
+  val stepSize = 26501365L
   val span = fieldHelper.maxX
   val spanStart = fieldHelper.startPoint._1
-  println(s"span: $span")
-  println(s"spanStart: $spanStart")
+  val radius = ((stepSize - spanStart) / span).toLong
 
-  val amountNormal = (stepSize - spanStart) / span
-  val amountLeft = (stepSize - spanStart) % span
-  val blockSize = res1.count(i => i._2 % 2 == 0)
-  val sides = (amountNormal - 2) * 2
-  val cones = 2
+  // A
+  val ac = fieldHelper.starts.map(st =>
+    val g = GraphTraversal.dijkstra(fieldHelper.gardenPath)(st)._1
+    g.count(i => i._2 <= spanStart && i._2 % 2 == 0).toLong
+  )
+  val centerA = res1.count(i => i._2 % 2 == 0 && i._2 <= spanStart).toLong
+  val blockSizeA = ac.sum + centerA
 
-  def size(l: Int) = Range(1, l*2, 2).foldLeft(0L)(_ + _)
-  val s = size(amountNormal - 1) + size(amountNormal - 2)
-  val totalBlocks = sides + cones + s
+  // B
+  val bc = fieldHelper.starts.map(st =>
+    val g = GraphTraversal.dijkstra(fieldHelper.gardenPath)(st)._1
+    g.count(i => i._2 < spanStart && i._2 % 2 == 1).toLong
+  )
+  val centerB = res1.count(i => i._2 % 2 == 1 && i._2 <= spanStart).toLong
+  val blockSizeB = centerB + bc.sum
 
+  val interest = res1.filter(i => i._2 % 2 == 0 && i._2 <= spanStart).keys.toVector
+  println(fieldHelper.getPrintable(interest))
 
-
-  println(s"block: $blockSize")
-  println(s"amount of blocks to side: $amountNormal")
-  println(s"amount of blocks left: $amountLeft")
-  println(s"amount of sides: $sides")
-  println(s"amount of cones: $cones")
-  println(s"amount of blocks within: $s")
-  println(s"amount of total blocks: $totalBlocks")
-
-  println(size(5))
-  println(size(4))
-
-  // todo: add the left over edges
-  //   - 4 cones
-  //   - 4 different diagonals
-
-  // todo: try differentiating block-sizes, perhaps that helps
-
-  // too low: 309801382485570 (duh because still have to add cones and diagonals)
-  // too low: 309804445292430
-  // toohigh: 619602764978710
+  val conesA = 4 * blockSizeA - ac.sum * 2L
+  val bigA = ac.map(cc => (blockSizeA - cc) * (radius - 1L)).sum
+  val smallB = bc.map(cc => cc * radius).sum
 
 
+  val testA = res1.count(i => i._2 % 2 == 0 && i._2 <= spanStart)
+  println(s"assertion for A: $testA + ${ac.sum} == $blockSizeA")
+
+  val testB = res1.count(i => i._2 % 2 == 1 && i._2 <= spanStart)
+  println(s"assertion for B: $testB + ${bc.sum} == $blockSizeB")
+
+  val sa = math.pow(radius - 1L, 2).toLong
+  val sb = math.pow(radius, 2).toLong
 
 
-  println(totalBlocks)
+  println(s"blocks A: $sa")
+  println(s"blocks B: $sb")
+  println(s"conesA: $conesA")
+  println(s"bigA: $bigA")
+  println(s"smallB: $smallB")
 
-  private val answer2 = totalBlocks * blockSize
+  // too low: 616538230149620
+
+  private val answer2 = conesA + bigA + sa * blockSizeA + sb * blockSizeB + smallB
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
-
-//  val interest = res1.filter(i => i._2 % 2 == 0 && i._2 <= stepNum2).keys.toVector
-//  println(fieldHelper.getPrintable(res1.filter(i => i._2 % 2 == 0 && i._2 <= stepNum2).keys.toVector))
-
-
-
-
-
 
