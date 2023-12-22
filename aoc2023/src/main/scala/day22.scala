@@ -23,6 +23,7 @@ object day22 extends App:
       .map(parse)
 
   case class Brick(xr: Range, yr: Range, z: Range):
+    
     def noHitX(that: Brick): Boolean =
       xr.max < that.xr.min
         || xr.min > that.xr.max
@@ -31,8 +32,9 @@ object day22 extends App:
       yr.min > that.yr.max
         || yr.max < that.yr.min
 
-  object Brick:
-    def fallOne(brick: Brick, bricksBelow: Vector[Brick]): Brick =
+  class BrickStacker(bricks: Vector[Brick]):
+    
+    private def fallOne(brick: Brick, bricksBelow: Vector[Brick]): Brick =
 
       @tailrec
       def go(cur: Brick): Brick =
@@ -47,65 +49,57 @@ object day22 extends App:
       if brick.z.min <= 1 then brick
       else go(brick)
 
-    def fallDown(bricks: Vector[Brick]): Vector[Brick] =
-      val bricksSorted: Vector[Brick] = bricks.sortBy(_.z.max)
-      bricksSorted.foldLeft(Vector.empty) { (res: Vector[Brick], in: Brick) =>
+    val stackedBricks: Vector[Brick] = bricks.sortBy(_.z.max).foldLeft(Vector.empty) { (res: Vector[Brick], in: Brick) =>
         res.appended(fallOne(in, res))
       }
 
-    def buildSupportStructure(bricks: Vector[Brick]): Map[Brick, Vector[Brick]] =
-      bricks.foldLeft(Map.empty[Brick, Vector[Brick]]) {(res: Map[Brick, Vector[Brick]], in: Brick) =>
-        val layerAbove: Vector[Brick] = bricks.filter(_.z.min == in.z.max + 1)
+    private val supportStructure: Map[Brick, Vector[Brick]] = stackedBricks.foldLeft(Map.empty[Brick, Vector[Brick]]) { (res: Map[Brick, Vector[Brick]], in: Brick) =>
+        val layerAbove: Vector[Brick] = stackedBricks.filter(_.z.min == in.z.max + 1)
         val supports: Vector[Brick] = layerAbove.filterNot(b => b.noHitX(in) || b.noHitY(in))
         res.updated(in, supports)
       }
-
-    def buildSupportedByStructure(bricks: Vector[Brick]): Map[Brick, Vector[Brick]] =
-      bricks.foldLeft(Map.empty[Brick, Vector[Brick]]) { (res: Map[Brick, Vector[Brick]], in: Brick) =>
-        val layerBelow: Vector[Brick] = bricks.filter(_.z.max == in.z.min - 1)
+    
+    private val supportedByStructure: Map[Brick, Vector[Brick]] = stackedBricks.foldLeft(Map.empty[Brick, Vector[Brick]]) { (res: Map[Brick, Vector[Brick]], in: Brick) =>
+        val layerBelow: Vector[Brick] = stackedBricks.filter(_.z.max == in.z.min - 1)
         val supportedBy: Vector[Brick] = layerBelow.filterNot(b => b.noHitX(in) || b.noHitY(in))
         res.updated(in, supportedBy)
       }
 
     def checkDisintegrate(stackedBricks: Vector[Brick]): Vector[Brick] =
 
-      val supported: Map[Brick, Vector[Brick]] = buildSupportStructure(stackedBricks)
-      val supportedBy: Map[Brick, Vector[Brick]] = buildSupportedByStructure(stackedBricks)
-
       stackedBricks.foldLeft(Vector.empty[Brick]) { (res: Vector[Brick], b: Brick) =>
-        val supports: Vector[Brick] = supported(b)
-        if supports.forall(p => supportedBy(p).exists(_ != b)) then res.appended(b)
+        val supports: Vector[Brick] = supportStructure(b)
+        if supports.forall(p => supportedByStructure(p).exists(_ != b)) then res.appended(b)
         else res
       }
 
-    def howManyFallDown(stackedBricks: Vector[Brick], toRemove: Vector[Brick]): Int =
+    def howManyFallDown(stackedBricks: Vector[Brick], toRemove: Brick): Int =
 
-      val supports: Map[Brick, Vector[Brick]] = buildSupportStructure(stackedBricks)
-      val init: Map[Brick, Vector[Brick]] = buildSupportedByStructure(stackedBricks)
+      import scala.collection.mutable
+      
+      val mutBeingSupportedBy: mutable.Map[Brick, mutable.Set[Brick]] = supportedByStructure.map((k, vv) => (k, vv.to(mutable.Set))).to(mutable.Map)
 
       @tailrec
-      def go(brick: Vector[Brick], supportedBy: Map[Brick, Vector[Brick]], count: Int): Int =
-        val areSupportedBy: Vector[Brick] = brick.flatMap(supports).distinct
-        val updatedSupportedBy: Map[Brick, Vector[Brick]] = supportedBy.map((b, vv) => (b, vv.filterNot(brick.contains)))
+      def go(brick: Vector[Brick], count: Int): Int =
+        val areSupportedBy: Vector[Brick] = brick.flatMap(supportStructure).distinct
+        areSupportedBy.foreach(b => mutBeingSupportedBy(b).subtractAll(brick))
         val willFall: Vector[Brick] = areSupportedBy.filter(br =>
-          val otherSupports: Vector[Brick] = updatedSupportedBy(br).filterNot(brick.contains)
-          otherSupports.isEmpty).distinct
+          val otherSupports: Set[Brick] = mutBeingSupportedBy(br).filterNot(brick.contains).toSet
+          otherSupports.isEmpty)
         if willFall.isEmpty then count
         else
-          go(willFall, updatedSupportedBy, count + willFall.length)
+          go(willFall, count + willFall.length)
 
-      toRemove.map(bb => go(Vector(bb), init, 0)).sum
+      go(Vector(toRemove), 0)
 
-  private val fallenDown: Vector[Brick] = Brick.fallDown(input)
-  private val bricksThatCan: Vector[Brick] = Brick.checkDisintegrate(fallenDown)
+  private val brickStacker: BrickStacker = BrickStacker(input)
+  private val bricksThatCan: Vector[Brick] = brickStacker.checkDisintegrate(brickStacker.stackedBricks)
   private val answer1: Int = bricksThatCan.length
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
-
 
   private val start2: Long =
     System.currentTimeMillis
 
-
-  private val bestBricks: Vector[Brick] = fallenDown.filterNot(bricksThatCan.contains)
-  private val answer2: Int = Brick.howManyFallDown(fallenDown, bestBricks)
+  private val bestBricks: Vector[Brick] = brickStacker.stackedBricks.filterNot(bricksThatCan.contains)
+  private val answer2: Int = bestBricks.map(b => brickStacker.howManyFallDown(brickStacker.stackedBricks, b)).sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
