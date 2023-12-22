@@ -69,27 +69,30 @@ object day21 extends App:
   val radius: Long = (stepSize - spanStart) / span
   val left: Long = (stepSize - spanStart) % span
 
-  val pEven = 0
-  val evenCorners = res1.count(i => i._2 > spanStart && i._2 % 2 == pEven).toLong
-  val evenSize = res1.count(i => i._2 % 2 == pEven)
+  val pA = 1
+  val Acorners = res1.count(i => i._2 > spanStart && i._2 % 2 == pA).toLong
+  val Asize = res1.count(i => i._2 % 2 == pA)
 
-  val pUneven = 1
-  val unevenCorners = res1.count(i => i._2 > spanStart && i._2 % 2 == pUneven).toLong
-  val unevenSize = res1.count(i => i._2 % 2 == pUneven).toLong
+  val pB = 0
+  val Bcorners = res1.count(i => i._2 > spanStart && i._2 % 2 == pB).toLong
+  val Bsize = res1.count(i => i._2 % 2 == pB).toLong
 
-  val sEven = math.pow(radius, 2).toLong
-  val sUneven = math.pow(radius + 1, 2).toLong
+  val sA = math.pow(radius + 1, 2).toLong
+  val sB = math.pow(radius, 2).toLong
 
-  val answer2 = sUneven * unevenSize + sEven * evenSize - ((radius + 1) * unevenCorners) + (radius * (evenCorners - 1))
+  println(fieldHelper.getPrintable(res1.filter(i => i._2 > spanStart && i._2 % 2 == pB).keys.toVector))
+  println(fieldHelper.getPrintable(res1.filter(i => i._2 % 2 == pB && i._2 <= 65).keys.toVector))
+
+  val answer2 = sB * Bsize + sA * Asize + (radius * Bcorners) - ((radius + 1) * Acorners) - radius
 
   println(s"span: $span")
   println(s"spanStart: $spanStart")
   println(s"radius: $radius")
-  println(s"ac: $evenCorners")
-  println(s"bc: $unevenCorners")
-  println(s"blocksize Even: $evenSize")
-  println(s"blocksize Uneven: $unevenSize")
-  println(s"blocks Even: $sEven")
-  println(s"blocks Uneven: $sUneven")
+  println(s"ac: $Acorners")
+  println(s"bc: $Bcorners")
+  println(s"blocksize A: $Asize")
+  println(s"blocksize B: $Bsize")
+  println(s"blocks A: $sA")
+  println(s"blocks B: $sB")
   println(s"left: ${ ((stepSize - spanStart) % span)}")
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
