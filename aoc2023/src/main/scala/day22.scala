@@ -73,7 +73,7 @@ object day22 extends App:
         else res
       }
 
-    def howManyFallDown(stackedBricks: Vector[Brick], toRemove: Brick): Int =
+    def howManyFallDown(toRemove: Brick): Int =
 
       import scala.collection.mutable
       
@@ -101,5 +101,5 @@ object day22 extends App:
     System.currentTimeMillis
 
   private val bestBricks: Vector[Brick] = brickStacker.stackedBricks.filterNot(bricksThatCan.contains)
-  private val answer2: Int = bestBricks.map(b => brickStacker.howManyFallDown(brickStacker.stackedBricks, b)).sum
+  private val answer2: Int = bestBricks.map(brickStacker.howManyFallDown).sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
