@@ -107,8 +107,10 @@ object day23 extends App:
           if node._1 == target then
             go(res.max(dist))
           else
-            val neighbours: Map[(Point, Set[Point]), Int] = g(node).map(iii => (iii._1, iii._2 + dist))
-            neighbours.foreach(n => active.enqueue(n))
+            val neighbours: Vector[((Point, Set[Point]), Int)] = g(node).map(iii => (iii._1, iii._2 + dist)).toVector
+            val i: Int = neighbours.indexWhere(iii => iii._1._1 == target)
+            val trueN: Vector[((Point, Set[Point]), Int)] = if i == -1 then neighbours else Vector(neighbours(i))
+            trueN.foreach(n => active.enqueue(n))
             go(res)
 
       go(0)
