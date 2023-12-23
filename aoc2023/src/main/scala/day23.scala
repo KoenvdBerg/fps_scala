@@ -96,8 +96,7 @@ object day23 extends App:
 
     def findLongestPath(g: Graph[(Point, Set[Point])])(source: Point, target: Point): Int =
 
-      val active: mutable.PriorityQueue[((Point, Set[Point]), Int)] =
-        mutable.PriorityQueue((source -> Set.empty[Point], 0))(Ordering.by((f: ((Point, Set[Point]), Int)) => f._2).reverse)
+      val active: mutable.Queue[((Point, Set[Point]), Int)] = mutable.Queue((source -> Set.empty[Point], 0))
 
       @tailrec
       def go(res: Int): Int =
