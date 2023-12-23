@@ -59,25 +59,25 @@ object aday23 extends App:
 
 
     @tailrec
-    final def walkUntilWayPoint(p: Path): (Path, Int) =
-      if p.x -> p.y == target then p -> p.distance
-      else if p.x -> p.y == (start.x, start.y) then p -> p.distance
+    final def walkUntilWayPoint(p: Path): Path =
+      if p.x -> p.y == target then p
+      else if p.x -> p.y == (start.x, start.y) then p
       else
         val cur: Char = maze(p.y)(p.x)
         val ns: Vector[Path] = p.neighbours(cur)
           .filter(pp => maze(pp.y)(pp.x) != '#' && inBounds(pp.x, pp.y))
-        if ns.length >= 2 then p -> p.distance
+        if ns.length >= 2 then p
         else walkUntilWayPoint(ns.head)
 
-    def mazeGraph: Graph[(Int, Int)] =
-      (x: Int, y: Int) =>
-        val np = Path(x, y, (-1, -1), 0)
+    def mazeGraph: Graph[Path] =
+      (p: Path) =>
+        val np = p.copy(prev = (-1, -1), distance = 0)
         val next = np.neighbours(maze(np.y)(np.x))
         next
           .filter(pp => inBounds(pp.x, pp.y))
           .filter(pp => maze(pp.y)(pp.x) != '#')
           .map(pp => walkUntilWayPoint(pp))
-          .map(pp => (pp._1.x, pp._1.y) -> pp._2)
+          .map(pp => pp.copy(prev = (-1, -1)) -> pp.distance)
           .toMap
 
 
@@ -96,12 +96,12 @@ object aday23 extends App:
 
 
   val pathFinder2 = PathFinder(input, 2)
-  private val res2 = GraphTraversal.dijkstra(pathFinder2.mazeGraph)((pathFinder2.start.x, pathFinder2.start.y))
+  private val res2 = GraphTraversal.dijkstra(pathFinder2.mazeGraph)(pathFinder2.start)
+
+  //val test2 = GraphTraversal.shortestPath(pathFinder2.mazeGraph)(pathFinder2.start, pathFinder2.target)
 
 
-  println(res2._2.toVector.mkString("\n"))
-  println()
-  println(res2._1.toVector.mkString("\n"))
+  println(res2._2.toVector.map((k, v) => (v, k)).groupBy(_._1).map((k, v) => (k, v.map(_._2))).mkString("\n"))
 
 //  private val answer2 = res2.maxBy(_.distance).distance
 //  println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
