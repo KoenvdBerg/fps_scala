@@ -87,27 +87,27 @@ object day23 extends App:
       res.map(p => Point(p.x, p.y) -> p.distance)
 
 
-    def wayPointDAG: Graph[(Point, Vector[Point])] =
-      (p: Point, visited: Vector[Point]) =>
+    def wayPointDAG: Graph[(Point, Set[Point])] =
+      (p: Point, visited: Set[Point]) =>
         memWalkUntilWayPoint(p)
-          .filterNot((np, _) => visited.contains(np))
-          .map((np, dist) => (np, visited.appended(p)) -> dist).toMap
+          .filterNot((np, _) => visited(np))
+          .map((np, dist) => (np, visited + p) -> dist).toMap
 
 
-    def findLongestPath(g: Graph[(Point, Vector[Point])])(source: Point, target: Point): Int =
+    def findLongestPath(g: Graph[(Point, Set[Point])])(source: Point, target: Point): Int =
 
-      val active: mutable.PriorityQueue[((Point, Vector[Point]), Int)] =
-        mutable.PriorityQueue((source -> Vector.empty[Point], 0))(Ordering.by((f: ((Point, Vector[Point]), Int)) => f._2).reverse)
+      val active: mutable.PriorityQueue[((Point, Set[Point]), Int)] =
+        mutable.PriorityQueue((source -> Set.empty[Point], 0))(Ordering.by((f: ((Point, Set[Point]), Int)) => f._2).reverse)
 
       @tailrec
       def go(res: Int): Int =
         if active.isEmpty then res
         else
-          val (node, dist): ((Point, Vector[Point]), Int) = active.dequeue
+          val (node, dist): ((Point, Set[Point]), Int) = active.dequeue
           if node._1 == target then
             go(res.max(dist))
           else
-            val neighbours: Map[(Point, Vector[Point]), Int] = g(node).map(iii => (iii._1, iii._2 + dist))
+            val neighbours: Map[(Point, Set[Point]), Int] = g(node).map(iii => (iii._1, iii._2 + dist))
             neighbours.foreach(n => active.enqueue(n))
             go(res)
 
