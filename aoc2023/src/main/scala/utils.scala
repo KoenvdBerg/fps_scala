@@ -285,6 +285,51 @@ object Algorithms:
 
   end GraphTraversal
 
+  class LabelPropagationAlgorithm[N](graph: Map[N, List[N]], maxIterations: Int, rngCorrection: Int):
+
+    import scala.util.Random
+
+    // labels are updated each iteration and provide the result of this class. Local mutable state.
+    private var labels: mutable.Map[N, N] = graph.keys.map(n => n -> n).to(mutable.Map)
+    private val graphNodes: Vector[N] = graph.keys.toVector
+
+    private def resetLabels: Unit =
+      labels = graph.keys.map(n => n -> n).to(mutable.Map)
+
+    private def receive(target: N): N =
+      val neighbours = graph(target).map(labels).groupBy(identity).map((n, nn) => n -> nn.length).toMap
+      neighbours.maxBy(_._2)._1
+
+    private def randomize(nodes: Vector[N]): Vector[N] = Random.shuffle(nodes)
+
+    @tailrec
+    private def run(nodes: Vector[N], i: Int): Unit =
+      if i >= maxIterations then ()
+      else if labels.values.toSet.size == 2 then ()
+      else
+        nodes.foreach { (node: N) =>
+          val received: N = receive(node)
+          labels.update(node, received)
+        }
+        run(randomize(nodes), i + 1)
+
+    def runAndCorrectRNG: Map[N, Int] =
+
+      val ret: mutable.ListBuffer[Map[N, Int]] = mutable.ListBuffer[Map[N, Int]]()
+
+      // happy side effects everywhere
+      for (_ <- Range(0, rngCorrection)) {
+        run(graphNodes, 0)
+        val toAdd = labels.values.groupBy(identity).map((lbl, nn) => lbl -> nn.size).toMap
+        ret.addOne(toAdd)
+        resetLabels
+      }
+
+      ret.groupBy(identity).maxBy(_._2.length)._1
+
+  end LabelPropagationAlgorithm
+
+
 
 object VectorUtils:
   extension (c: Vector[Int])
