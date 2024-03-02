@@ -329,7 +329,13 @@ object Algorithms:
 
   end LabelPropagationAlgorithm
 
+object SequenceUtils:
 
+  extension [A](seq: Seq[A])
+    def identityMap: Map[A, Int] = seq.foldLeft(Map.empty) { (res, c) => res.get(c) match
+      case None => res.updated(c, 1)
+      case Some(v) => res.updated(c, v + 1)
+    }
 
 object VectorUtils:
   extension (c: Vector[Int])
