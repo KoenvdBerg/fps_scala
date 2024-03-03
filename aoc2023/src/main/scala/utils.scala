@@ -337,6 +337,15 @@ object SequenceUtils:
       case Some(v) => res.updated(c, v + 1)
     }
 
+  case class CircularQueue[A](start: Seq[A]):
+
+    private val mq: scala.collection.mutable.Queue[A] = scala.collection.mutable.Queue.from(start)
+    def dequeue: A =
+      if mq.isEmpty then
+        mq.enqueueAll(start)
+        dequeue
+      else mq.dequeue
+
 object VectorUtils:
   extension (c: Vector[Int])
     def -(that: Vector[Int]): Vector[Int] = c.zipWithIndex.map((v: Int, i: Int) => v - that(i))
