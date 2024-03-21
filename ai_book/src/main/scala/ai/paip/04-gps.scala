@@ -1,20 +1,22 @@
 package ai.paip
 
+import ai.paip.SchoolDomain.*
+
 // https://github.com/norvig/paip-lisp/tree/main
 
-case class Op(action: String, precons: List[String], addList: List[String], delList: List[String] = Nil)
+case class Op(action: Domain, precons: List[Domain], addList: List[Domain], delList: List[Domain] = Nil)
 
-class GPS(startingState: List[String], ops: Vector[Op]):
+class GPS(startingState: List[Domain], ops: Vector[Op]):
 
-  val state: scala.collection.mutable.Set[String] = scala.collection.mutable.Set.empty
+  val state: scala.collection.mutable.Set[Domain] = scala.collection.mutable.Set.empty
 
-  def run(goals: Vector[String]): String =
+  def run(goals: Vector[Domain]): String =
     state.addAll(startingState)
     if goals.forall(achieve) then "solved" else "failed"
 
-  def achieve(goal: String): Boolean = state.contains(goal) || ops.filter(appropriateOp(goal)).forall(applyOp)
+  def achieve(goal: Domain): Boolean = state.contains(goal) || ops.filter(appropriateOp(goal)).forall(applyOp)
 
-  def appropriateOp(goal: String)(op: Op): Boolean = op.addList.contains(goal)
+  def appropriateOp(goal: Domain)(op: Op): Boolean = op.addList.contains(goal)
 
   def applyOp(op: Op): Boolean =
     if op.precons.forall(achieve) then
@@ -25,22 +27,52 @@ class GPS(startingState: List[String], ops: Vector[Op]):
     else false
 
 
+trait Domain
+
+enum SchoolDomain extends Domain:
+  // dad states:
+  case HavePhoneBook
+  case HaveMoney
+  case KnowPhoneNumber
+
+  // actions:
+  case DriveSonToSchool
+  case GiveShopMoney
+  case TelephoneShop
+  case LookUpPhoneNumber  
+  case TellShopProblem
+
+  // son states:
+  case SonAtSchool
+  case SonAtHome
+  
+  // car states:
+  case CarWorks
+  case CarNeedsBattery
+  
+  // carshop states:
+  case ShopKnowsProblem
+  case ShopInstallsBattery
+  case InCommunicationWithShop
+  case ShopHasMoney
+  
+
 object School:
 
   val schoolOps: Vector[Op] = Vector(
-    Op("drive son to school", List("son at work", "car works"), List("son at school"), List("son at home")),
-    Op("shop installs battery", List("car needs battery", "shop knows problem", "shop has money"), List("car works")),
-    Op("tell shop problem", List("in communication with shop"), List("shop knows problem")),
-    Op("telephone shop", List("know phone number"), List("in communication with shop")),
-    Op("look up phone number", List("have phone book"), List("know phone number")),
-    Op("give shop money", List("have money"), List("shop has money"), List("have money"))
+    Op(DriveSonToSchool, List(SonAtHome, CarWorks), List(SonAtSchool), List(SonAtHome)),
+    Op(ShopInstallsBattery, List(CarNeedsBattery, ShopKnowsProblem, ShopHasMoney), List(CarWorks)),
+    Op(TellShopProblem, List(InCommunicationWithShop), List(ShopKnowsProblem)),
+    Op(TelephoneShop, List(KnowPhoneNumber), List(InCommunicationWithShop)),
+    Op(LookUpPhoneNumber, List(HavePhoneBook), List(KnowPhoneNumber)),
+    Op(GiveShopMoney, List(HaveMoney), List(ShopHasMoney), List(HaveMoney))
   )
 
 
 
 @main def atest_gps: Unit =
 
-  val gps = GPS(List("son at home", "car needs battery", "have money", "have phone book"), School.schoolOps)
+  val gps = GPS(List(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), School.schoolOps)
 
-  val x = gps.run(Vector("son at school"))
+  val x = gps.run(Vector(SonAtSchool))
   println(x)
