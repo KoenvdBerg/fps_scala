@@ -23,11 +23,11 @@ class GPS(ops: Vector[Op], debug: Boolean = false):
 
   private def achieve(goalStack: List[State])(goal: State): Boolean =
     indentPrinter(goalStack.length, s"Goal: $goal")
-    if state.contains(goal) then true
+    if state(goal) then true
     else if goalStack.contains(goal) then false
     else
       val filtered: Vector[Op] = ops.filter(_.isDependendOn(goal))
-      filtered.exists(applyOp(goal, goalStack)) && filtered.nonEmpty // used to be .forall
+      filtered.nonEmpty && filtered.exists(applyOp(goal, goalStack))
 
   private def applyOp(goal: State, goalStack: List[State])(op: Op): Boolean =
     indentPrinter(goalStack.length, s"Considering: ${op.action}")
