@@ -5,9 +5,7 @@ import ai.paip.SchoolActions.*
 
 import scala.collection.mutable
 
-case class Op(action: Action, preconditions: Seq[State], addToState: Seq[State], delFromState: Seq[State] = Seq.empty[State]):
-
-  def isDependendOn(goal: State): Boolean = addToState.contains(goal)
+case class Op(action: Action, preconditions: Seq[State], addToState: Seq[State], delFromState: Seq[State] = Seq.empty[State])
 
 class GPS(ops: Vector[Op], debug: Boolean = false):
 
@@ -26,18 +24,17 @@ class GPS(ops: Vector[Op], debug: Boolean = false):
     if state(goal) then true
     else if goalStack.contains(goal) then false
     else
-      val filtered: Vector[Op] = ops.filter(_.isDependendOn(goal))
-      filtered.nonEmpty && filtered.exists(applyOp(goal, goalStack))
+      val availableOps: Vector[Op] = ops.filter(_.addToState.contains(goal))
+      availableOps.nonEmpty && availableOps.exists(applyOp(goal, goalStack))
 
   private def applyOp(goal: State, goalStack: List[State])(op: Op): Boolean =
     indentPrinter(goalStack.length, s"Considering: ${op.action}")
-    val canPerformAction: Boolean = op.preconditions.forall(achieve(goal :: goalStack))
-    if canPerformAction then
+    if op.preconditions.forall(achieve(goal :: goalStack)) then
       indentPrinter(goalStack.length, s"Action: ${op.action}")
       performedActions.addOne(op.action)
-      op.delFromState.foreach(d => state.remove(d))
-      state.addAll(op.addToState)
-    canPerformAction
+      state.subtractAll(op.delFromState).addAll(op.addToState)
+      true
+    else false
 
   private def indentPrinter(l: Int, msg: String): Unit = if debug then println(s"${" " * l}$msg")
 
