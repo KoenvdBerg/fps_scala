@@ -2,47 +2,52 @@ package ai.paip
 
 import ai.paip.SchoolStates.*
 import ai.paip.SchoolActions.*
+import ai.paip.Block.*
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 
-// https://github.com/norvig/paip-lisp/tree/main
+case class Op(action: Action, preconditions: Seq[State], addToState: Seq[State], delFromState: Seq[State] = Seq.empty[State])
 
-case class Op(action: Action, precons: List[State], addList: List[State], delList: List[State] = Nil):
+class GPS(ops: Seq[Op], debug: Boolean = false):
 
-  def isAppropriate(goal: State): Boolean = addList.contains(goal)
+  private val state: scala.collection.mutable.Set[State]   = scala.collection.mutable.Set.empty
+  private val performedActions: mutable.ListBuffer[Action] = mutable.ListBuffer.empty[Action]
 
+  def run(startingState: Set[State], goals: Seq[State], tryReverse: Boolean = true): Seq[Action] =
+    state.clear()
+    performedActions.clear()
+    state.addAll(startingState)
+    val goalsAchieved: Boolean = goals.forall(achieve(Nil)) && goals.forall(state)
+    if !goalsAchieved && tryReverse then run(startingState, goals.reverse, false)  // try the reverse order of goals once
+    else performedActions.toSeq
 
-class GPS(ops: Vector[Op]):
-
-  private val done: ListBuffer[Action] = ListBuffer.empty
-
-  def run(state: Set[State], goals: List[State]): Vector[Action] =
-    done.clear()
-    achieveAll(state + Start, goals, List.empty[State])
-    done.toVector
-
-  def achieveAll(state: Set[State], goals: List[State], goalStack: List[State]): Set[State] =
-    val thisState: Set[State] = goals.flatMap(g => achieve(state, g, goalStack)).toSet
-    if goals.forall(thisState) then thisState else Set.empty
-
-  def achieve(state: Set[State], goal: State, goalStack: List[State]): Set[_ <: State] =
-    if state.contains(goal) then state
-    else if goalStack.contains(goal) then Set.empty
+  private def achieve(goalStack: List[State])(goal: State): Boolean =
+    indentPrinter(goalStack.length, s"Goal: $goal")
+    if state(goal) then true
+    else if goalStack.contains(goal) then false
     else
-      ops.filter(_.isAppropriate(goal)).flatMap(op => applyGoal(op, state, goal, goalStack)).toSet
+      val nextGoals: Seq[Op] = ops
+        .filter(_.addToState.contains(goal))
+        .sortBy(-_.preconditions.count(state))  // sort by the most likely goal to achieve first i.e. least preconditions to execute
+      nextGoals.nonEmpty && nextGoals.exists(applyOp(goal, goalStack))
 
-  def applyGoal(op: Op, state: Set[State], goal: State, goalStack: List[State]): Set[State] =
-    val nextState = achieveAll(state, op.precons, goal :: goalStack)
-    if nextState.nonEmpty then
-      done.addOne(op.action)
-      state.diff(op.delList.toSet) ++ op.addList.toSet
-    else nextState
+  private def applyOp(goal: State, goalStack: List[State])(op: Op): Boolean =
+    indentPrinter(goalStack.length, s"Considering: ${op.action}")
+    if op.preconditions.forall(achieve(goal :: goalStack)) then
+      indentPrinter(goalStack.length, s"Action: ${op.action}")
+      performedActions.addOne(op.action)
+      state.subtractAll(op.delFromState).addAll(op.addToState)
+      true
+    else false
 
+  private def indentPrinter(l: Int, msg: String): Unit = if debug then pprint.pprintln(s"${" " * l}$msg")
+
+
+// -------------------------- DOMAINS ----------------------------
 trait State
 trait Action
 
-case object Start extends State
-
+// School Domain
 enum SchoolActions extends Action:
   case DriveSonToSchool
   case GiveShopMoney
@@ -50,23 +55,17 @@ enum SchoolActions extends Action:
   case LookUpPhoneNumber
   case TellShopProblem
   case ShopInstallsBattery
+  case AskPhoneNumber
 
 
 enum SchoolStates extends State:
-  // dad states:
   case HavePhoneBook
   case HaveMoney
   case KnowPhoneNumber
-
-  // son states:
   case SonAtSchool
   case SonAtHome
-
-  // car states:
   case CarWorks
   case CarNeedsBattery
-
-  // carshop states:
   case ShopKnowsProblem
   case InCommunicationWithShop
   case ShopHasMoney
@@ -74,47 +73,93 @@ enum SchoolStates extends State:
 
 object SchoolStates:
 
-  val schoolOps: Vector[Op] = Vector(
-    Op(DriveSonToSchool, List(SonAtHome, CarWorks), List(SonAtSchool), List(SonAtHome)),
-    Op(ShopInstallsBattery, List(CarNeedsBattery, ShopKnowsProblem, ShopHasMoney), List(CarWorks)),
-    Op(TellShopProblem, List(InCommunicationWithShop), List(ShopKnowsProblem)),
-    Op(TelephoneShop, List(KnowPhoneNumber), List(InCommunicationWithShop)),
-    Op(LookUpPhoneNumber, List(HavePhoneBook), List(KnowPhoneNumber)),
-    Op(GiveShopMoney, List(HaveMoney), List(ShopHasMoney), List(HaveMoney))
+  val schoolOps: Seq[Op] = Seq(
+    Op(DriveSonToSchool, Seq(SonAtHome, CarWorks), Seq(SonAtSchool), Seq(SonAtHome)),
+    Op(ShopInstallsBattery, Seq(CarNeedsBattery, ShopKnowsProblem, ShopHasMoney), Seq(CarWorks)),
+    Op(TellShopProblem, Seq(InCommunicationWithShop), Seq(ShopKnowsProblem)),
+    Op(TelephoneShop, Seq(KnowPhoneNumber), Seq(InCommunicationWithShop)),
+    Op(LookUpPhoneNumber, Seq(HavePhoneBook), Seq(KnowPhoneNumber)),  // comment this to obtain infinite loop
+    Op(GiveShopMoney, Seq(HaveMoney), Seq(ShopHasMoney), Seq(HaveMoney)),
+    Op(AskPhoneNumber, Seq(InCommunicationWithShop), Seq(KnowPhoneNumber))
   )
+
+// Maze Domain
+case class Move(from: Int, to: Int) extends Action
+case class Loc(at: Int) extends State
+
+object Maze:
+
+  def makeMazeOp(from: Int, to: Int): Op = Op(
+    action = Move(from, to),
+    preconditions = Seq(Loc(from)),
+    addToState = Seq(Loc(to)),
+    delFromState = Seq(Loc(from)))
+  def mazeOps: Seq[Op] =
+    val coords: Seq[(Int, Int)] = Seq((1, 2) ,(2, 3),(3, 4) ,(4, 9) ,(9, 14),(9, 8),(8, 7),(7, 12),(12, 13),(12, 11),(11, 6),(11, 16) ,(16, 17) ,(17, 22),(22, 21),(22, 23),(23, 18),(23, 24) ,(24, 19) ,(19, 20) ,(20, 15) ,(15, 10) ,(10, 5) ,(20, 25))
+    coords.flatMap((from, to) => Seq(makeMazeOp(from, to), makeMazeOp(to, from)))
+
+// Block Domain
+case class BlockMove(which: Block, from: Block, on: Block) extends Action
+case class BlockState(which: Block, on: Block) extends State
+enum Block:
+  case A, B, C, Space, Table
+
+object Block:
+
+  def makeMovesForBlocks(blocks: Block*): Seq[Op] = makeTableMoves(blocks) ++ makeBlockMoves(blocks)
+  private def makeBlockMoves(blocks: Seq[Block]): Seq[Op] =
+    for
+      b1 <- blocks
+      b2 <- blocks
+      if b1 != b2
+      b3 <- blocks
+      if !(b3 == b1 || b3 == b2)
+    yield makeMove(b1, b2, b3)
+
+  private def makeTableMoves(blocks: Seq[Block]): Seq[Op] =
+    for
+      b1 <- blocks
+      b2 <- blocks
+      if b1 != b2
+      tableMoves <- Seq(makeMove(b1, Table, b2), makeMove(b1, b2, Table))
+    yield tableMoves
+
+  private def makeMove(b1: Block, b2: Block, b3: Block): Op =
+    Op(
+      action = BlockMove(b1, b2, b3),
+      preconditions = Seq(BlockState(Space, b1), BlockState(Space, b3), BlockState(b1, b2)),
+      addToState = nextBlockStates(b1, b2, b3),
+      delFromState = nextBlockStates(b1, b3, b2)
+    )
+  private def nextBlockStates(b1: Block, b2: Block, b3: Block): Seq[State] =
+    if b2 == Table then Seq(BlockState(b1, b3))
+    else Seq(BlockState(b1, b3), BlockState(Space, b2))
+
+
 
 
 
 @main def test_gps: Unit =
 
-  val gps = GPS(SchoolStates.schoolOps)
-  val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), List(SonAtSchool))
-  println(s"Having done: $result")
+  // SCHOOL
+  // val gps = new GPS(SchoolStates.schoolOps, true)
+  // val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool))
+  // val r2 = gps.run(Set(SonAtHome, CarWorks), Set(SonAtSchool))
+  // val r3 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(HaveMoney, SonAtSchool))
+  // val r4 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool, HaveMoney))
+  // val r5 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney), Set(SonAtSchool))
 
+  // MAZE
+  // val mazeGPS = new GPS(Maze.mazeOps, true)
+  // println(mazeGPS.run(startingState = Set(Loc(1)), goals = Set(Loc(25))))
 
+  // BLOCKS
+  // val solverTwoBlocks = new GPS(Block.makeMovesForBlocks(A, B), true)
+  // val solution2_1 = solverTwoBlocks.run(Set(BlockState(A, Table), BlockState(B, Table), BlockState(Space, A), BlockState(Space, B), BlockState(Space, Table)), Set(BlockState(A, B), BlockState(B, Table)))
+  // val solution2_2 = solverTwoBlocks.run(Set(BlockState(A, B), BlockState(B, Table), BlockState(Space, A), BlockState(Space, Table)),Set(BlockState(B, A)))
 
-
-/**
-class GPS(ops: Vector[Op]):
-
-  def gps(state: Set[Domain], goals: List[Domain]): Set[Domain] =
-    // add remove-if #'atom
-    achieveAll(state + Start, goals, List.empty[Domain])
-
-  def achieveAll(state: Set[Domain], goals: List[Domain], goalStack: List[Domain]): Set[Domain] =
-    val thisState: Set[Domain] = goals.flatMap(g => achieve(state, g, goalStack)).toSet
-    if goals.forall(thisState) then thisState else Set.empty
-
-  def achieve(state: Set[Domain], goal: Domain, goalStack: List[Domain]): Set[_ <: Domain] =
-    if state.contains(goal) then state
-    else if goalStack.contains(goal) then Set.empty
-    else
-      ops.filter(_.isAppropriate(goal)).flatMap(op => applyGoal(op, state, goal, goalStack)).toSet
-
-  def applyGoal(op: Op, state: Set[Domain], goal: Domain, goalStack: List[Domain]): Set[Domain] =
-    val nextState = achieveAll(state, op.precons, goal :: goalStack)
-    if nextState.nonEmpty then
-      println(s"doing: ${op.action}")
-      state.diff(op.delList.toSet) ++ op.addList.toSet
-    else nextState
-**/
+  val solverThreeBlocks = new GPS(Block.makeMovesForBlocks(A, B, C), true)
+  val solution3_1 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(B, A), BlockState(C, B)))
+  val solution3_2 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(C, B), BlockState(B, A)))
+  val solution3_3 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table)))
+  val solution3_4 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table), BlockState(A, B)))
