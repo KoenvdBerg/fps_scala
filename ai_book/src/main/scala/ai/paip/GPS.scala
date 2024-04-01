@@ -3,6 +3,8 @@ package ai.paip
 import ai.paip.SchoolStates.*
 import ai.paip.SchoolActions.*
 import ai.paip.Block.*
+import Gas.*
+import GasStates.*
 
 import scala.collection.mutable
 
@@ -24,7 +26,7 @@ class GPS(ops: Seq[Op], debug: Boolean = false):
   private def achieve(goalStack: List[State])(goal: State): Boolean =
     indentPrinter(goalStack.length, s"Goal: $goal")
     if state(goal) then true
-    else if goalStack.contains(goal) then false
+    else if goalStack.count(_ == goal) >= 1 then false
     else
       val nextGoals: Seq[Op] = ops
         .filter(_.addToState.contains(goal))
@@ -81,6 +83,27 @@ object SchoolStates:
     Op(LookUpPhoneNumber, Seq(HavePhoneBook), Seq(KnowPhoneNumber)),  // comment this to obtain infinite loop
     Op(GiveShopMoney, Seq(HaveMoney), Seq(ShopHasMoney), Seq(HaveMoney)),
     Op(AskPhoneNumber, Seq(InCommunicationWithShop), Seq(KnowPhoneNumber))
+  )
+
+// Infinite Gas Domain
+enum Gas extends Action:
+  case DriveToGasStation
+  case TankGas
+  case GetGasByBike
+
+enum GasStates extends State:
+  case GasTankEmpty
+  case GasTankFilled
+  case AtGasStation
+  case NotAtGasStation
+  case FilledGasJerry
+
+object Gas:
+  val gasOps: Seq[Op] = Seq(
+    Op(TankGas, Seq(AtGasStation), Seq(GasTankFilled)),
+    Op(DriveToGasStation, Seq(GasTankFilled), Seq(AtGasStation)),
+    Op(GetGasByBike, Seq(NotAtGasStation), Seq(FilledGasJerry)),
+    Op(TankGas, Seq(FilledGasJerry), Seq(GasTankFilled)),
   )
 
 // Maze Domain
@@ -149,6 +172,10 @@ object Block:
   // val r4 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool, HaveMoney))
   // val r5 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney), Set(SonAtSchool))
 
+  // INFINITE GAS
+  val gasGPS = new GPS(Gas.gasOps, true)
+  gasGPS.run(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
+
   // MAZE
   // val mazeGPS = new GPS(Maze.mazeOps, true)
   // println(mazeGPS.run(startingState = Set(Loc(1)), goals = Set(Loc(25))))
@@ -158,8 +185,8 @@ object Block:
   // val solution2_1 = solverTwoBlocks.run(Set(BlockState(A, Table), BlockState(B, Table), BlockState(Space, A), BlockState(Space, B), BlockState(Space, Table)), Set(BlockState(A, B), BlockState(B, Table)))
   // val solution2_2 = solverTwoBlocks.run(Set(BlockState(A, B), BlockState(B, Table), BlockState(Space, A), BlockState(Space, Table)),Set(BlockState(B, A)))
 
-  val solverThreeBlocks = new GPS(Block.makeMovesForBlocks(A, B, C), true)
-  val solution3_1 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(B, A), BlockState(C, B)))
-  val solution3_2 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(C, B), BlockState(B, A)))
-  val solution3_3 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table)))
-  val solution3_4 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table), BlockState(A, B)))
+  // val solverThreeBlocks = new GPS(Block.makeMovesForBlocks(A, B, C), true)
+  // val solution3_1 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(B, A), BlockState(C, B)))
+  // val solution3_2 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(C, B), BlockState(B, A)))
+  // val solution3_3 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table)))
+  // val solution3_4 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table), BlockState(A, B)))
