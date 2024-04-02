@@ -23,11 +23,15 @@ object GPSConcrete:
 
     def onAction(globalState: Set[State]): Set[State] = if preconditions.forall(globalState) then (globalState ++ addToState).removedAll(delFromState) else globalState
 
-  class GPS(ops: Seq[Op], startState: Set[State]):
+  class GPS(ops: Seq[Op]):
 
-    private val globalState: mutable.Set[State] = mutable.Set.from(startState)
+    private val globalState: mutable.Set[State] = mutable.Set.empty[State]
 
-    def canAchieveGoal(goal: State): Boolean =
+    def solve(startState: Set[State], goals: Seq[State]): Boolean =
+      globalState.addAll(startState)
+      goals.forall(canAchieveGoal) && goals.forall(globalState)
+
+    private def canAchieveGoal(goal: State): Boolean =
       if globalState(goal) then true
       else ops
         .filter(_.addToState.contains(goal))  // retrieving actions to solve subgoals

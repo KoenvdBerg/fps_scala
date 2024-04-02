@@ -42,7 +42,7 @@ class GPS(ops: Seq[Op], debug: Boolean = false):
       true
     else false
 
-  private def indentPrinter(l: Int, msg: String): Unit = if debug then pprint.pprintln(s"${" " * l}$msg")
+  private def indentPrinter(l: Int, msg: String): Unit = if debug then println(s"${" " * l}$msg")
 
 
 // -------------------------- DOMAINS ----------------------------
@@ -165,16 +165,17 @@ object Block:
 @main def test_gps: Unit =
 
   // SCHOOL
-  // val gps = new GPS(SchoolStates.schoolOps, true)
-  // val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool))
+   val gps = new GPS(SchoolStates.schoolOps, true)
+   val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Seq(SonAtSchool))
+   println(result)
   // val r2 = gps.run(Set(SonAtHome, CarWorks), Set(SonAtSchool))
   // val r3 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(HaveMoney, SonAtSchool))
   // val r4 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool, HaveMoney))
   // val r5 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney), Set(SonAtSchool))
 
   // INFINITE GAS
-  val gasGPS = new GPS(Gas.gasOps, true)
-  gasGPS.run(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
+//  val gasGPS = new GPS(Gas.gasOps, true)
+//  gasGPS.run(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
 
   // MAZE
   // val mazeGPS = new GPS(Maze.mazeOps, true)
