@@ -26,7 +26,7 @@ class GPS(ops: Seq[Op], debug: Boolean = false):
   private def achieve(goalStack: List[State])(goal: State): Boolean =
     indentPrinter(goalStack.length, s"Goal: $goal")
     if state(goal) then true
-    else if goalStack.count(_ == goal) >= 1 then false
+    else if goalStack.count(_ == goal) >= 2 then false
     else
       val nextGoals: Seq[Op] = ops
         .filter(_.addToState.contains(goal))
@@ -103,7 +103,7 @@ object Gas:
     Op(TankGas, Seq(AtGasStation), Seq(GasTankFilled)),
     Op(DriveToGasStation, Seq(GasTankFilled), Seq(AtGasStation)),
     Op(GetGasByBike, Seq(NotAtGasStation), Seq(FilledGasJerry)),
-    Op(TankGas, Seq(FilledGasJerry), Seq(GasTankFilled)),
+    Op(DriveToGasStation, Seq(FilledGasJerry), Seq(AtGasStation)),
   )
 
 // Maze Domain
@@ -165,17 +165,17 @@ object Block:
 @main def test_gps: Unit =
 
   // SCHOOL
-   val gps = new GPS(SchoolStates.schoolOps, true)
-   val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Seq(SonAtSchool))
-   println(result)
+//   val gps = new GPS(SchoolStates.schoolOps, true)
+//   val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Seq(SonAtSchool))
+//   println(result)
   // val r2 = gps.run(Set(SonAtHome, CarWorks), Set(SonAtSchool))
   // val r3 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(HaveMoney, SonAtSchool))
   // val r4 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool, HaveMoney))
   // val r5 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney), Set(SonAtSchool))
 
   // INFINITE GAS
-//  val gasGPS = new GPS(Gas.gasOps, true)
-//  gasGPS.run(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
+  val gasGPS = new GPS(Gas.gasOps, true)
+  gasGPS.run(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
 
   // MAZE
   // val mazeGPS = new GPS(Maze.mazeOps, true)
