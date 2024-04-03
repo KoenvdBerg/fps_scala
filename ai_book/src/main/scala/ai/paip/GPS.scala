@@ -15,18 +15,18 @@ class GPS(ops: Seq[Op], debug: Boolean = false):
   private val state: scala.collection.mutable.Set[State]   = scala.collection.mutable.Set.empty
   private val performedActions: mutable.ListBuffer[Action] = mutable.ListBuffer.empty[Action]
 
-  def run(startingState: Set[State], goals: Seq[State], tryReverse: Boolean = true): Seq[Action] =
+  def solve(startingState: Set[State], goals: Seq[State], tryReverse: Boolean = true): Seq[Action] =
     state.clear()
     performedActions.clear()
     state.addAll(startingState)
     val goalsAchieved: Boolean = goals.forall(achieve(Nil)) && goals.forall(state)
-    if !goalsAchieved && tryReverse then run(startingState, goals.reverse, false)  // try the reverse order of goals once
+    if !goalsAchieved && tryReverse then solve(startingState, goals.reverse, false)  // try the reverse order of goals once
     else performedActions.toSeq
 
   private def achieve(goalStack: List[State])(goal: State): Boolean =
     indentPrinter(goalStack.length, s"Goal: $goal")
     if state(goal) then true
-    else if goalStack.count(_ == goal) >= 2 then false
+    else if goalStack.count(_ == goal) >= 30 then false
     else
       val nextGoals: Seq[Op] = ops
         .filter(_.addToState.contains(goal))
@@ -89,21 +89,17 @@ object SchoolStates:
 enum Gas extends Action:
   case DriveToGasStation
   case TankGas
-  case GetGasByBike
 
 enum GasStates extends State:
   case GasTankEmpty
   case GasTankFilled
   case AtGasStation
   case NotAtGasStation
-  case FilledGasJerry
 
 object Gas:
   val gasOps: Seq[Op] = Seq(
     Op(TankGas, Seq(AtGasStation), Seq(GasTankFilled)),
-    Op(DriveToGasStation, Seq(GasTankFilled), Seq(AtGasStation)),
-    Op(GetGasByBike, Seq(NotAtGasStation), Seq(FilledGasJerry)),
-    Op(DriveToGasStation, Seq(FilledGasJerry), Seq(AtGasStation)),
+    Op(DriveToGasStation, Seq(GasTankFilled), Seq(AtGasStation))
   )
 
 // Maze Domain
@@ -158,36 +154,49 @@ object Block:
     if b2 == Table then Seq(BlockState(b1, b3))
     else Seq(BlockState(b1, b3), BlockState(Space, b2))
 
-
+def printClean(solution: Seq[Action]): Unit =
+  val toPrint = solution.zipWithIndex.map((act, i) => s"   Step ${i+1}: ${act.toString}")
+  if toPrint.isEmpty then println("No solution possible for current operations")
+  else println("\nThe following steps have to be taken in order:\n" + toPrint.mkString("\n"))
 
 
 
 @main def test_gps: Unit =
 
   // SCHOOL
-//   val gps = new GPS(SchoolStates.schoolOps, true)
-//   val result = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Seq(SonAtSchool))
-//   println(result)
-  // val r2 = gps.run(Set(SonAtHome, CarWorks), Set(SonAtSchool))
-  // val r3 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(HaveMoney, SonAtSchool))
-  // val r4 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool, HaveMoney))
-  // val r5 = gps.run(Set(SonAtHome, CarNeedsBattery, HaveMoney), Set(SonAtSchool))
+   val gps = new GPS(SchoolStates.schoolOps, true)
+   val result = gps.solve(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Seq(SonAtSchool))
+   printClean(result)
+//   val r2 = gps.solve(Set(SonAtHome, CarWorks), Set(SonAtSchool))
+//   val r3 = gps.solve(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(HaveMoney, SonAtSchool))
+//   val r4 = gps.solve(Set(SonAtHome, CarNeedsBattery, HaveMoney, HavePhoneBook), Set(SonAtSchool, HaveMoney))
+//   val r5 = gps.solve(Set(SonAtHome, CarNeedsBattery, HaveMoney), Set(SonAtSchool))
 
   // INFINITE GAS
-  val gasGPS = new GPS(Gas.gasOps, true)
-  gasGPS.run(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
+//  val gasGPS = new GPS(Gas.gasOps, true)
+//  val gasResult = gasGPS.solve(Set(GasTankEmpty, NotAtGasStation), Seq(GasTankFilled), false)
+//  printClean(gasResult)
 
   // MAZE
-  // val mazeGPS = new GPS(Maze.mazeOps, true)
-  // println(mazeGPS.run(startingState = Set(Loc(1)), goals = Set(Loc(25))))
+//   val mazeGPS = new GPS(Maze.mazeOps, true)
+//   val mazeResult = mazeGPS.solve(startingState = Set(Loc(1)), goals = Seq(Loc(25)))
+//   printClean(mazeResult)
 
   // BLOCKS
-  // val solverTwoBlocks = new GPS(Block.makeMovesForBlocks(A, B), true)
-  // val solution2_1 = solverTwoBlocks.run(Set(BlockState(A, Table), BlockState(B, Table), BlockState(Space, A), BlockState(Space, B), BlockState(Space, Table)), Set(BlockState(A, B), BlockState(B, Table)))
-  // val solution2_2 = solverTwoBlocks.run(Set(BlockState(A, B), BlockState(B, Table), BlockState(Space, A), BlockState(Space, Table)),Set(BlockState(B, A)))
+//  val solverThreeBlocks = new GPS(Block.makeMovesForBlocks(A, B, C), true)
+//  val solution3_4 = solverThreeBlocks.solve(
+//    Set(BlockState(C, A),
+//      BlockState(A, Table), 
+//      BlockState(B, Table),
+//      BlockState(Space, C), 
+//      BlockState(Space, B), 
+//      BlockState(Space, Table)), 
+//    Seq(BlockState(C, Table), BlockState(A, B)))
+//  printClean(solution3_4)
+//  val solution3_1 = solverThreeBlocks.solve(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(B, A), BlockState(C, B)))
+//  val solution3_2 = solverThreeBlocks.solve(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(C, B), BlockState(B, A)))
+//  val solution3_3 = solverThreeBlocks.solve(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table)))
 
-  // val solverThreeBlocks = new GPS(Block.makeMovesForBlocks(A, B, C), true)
-  // val solution3_1 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(B, A), BlockState(C, B)))
-  // val solution3_2 = solverThreeBlocks.run(Set(BlockState(A, B), BlockState(B, C), BlockState(C, Table), BlockState(Space, A), BlockState(Space, Table)), Seq(BlockState(C, B), BlockState(B, A)))
-  // val solution3_3 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table)))
-  // val solution3_4 = solverThreeBlocks.run(Set(BlockState(C, A), BlockState(A, Table), BlockState(B, Table), BlockState(Space, C), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(C, Table), BlockState(A, B)))
+//  val solverTwoBlocks = new GPS(Block.makeMovesForBlocks(A, B), true)
+//  val solution2_1 = solverTwoBlocks.solve(Set(BlockState(A, Table), BlockState(B, Table), BlockState(Space, A), BlockState(Space, B), BlockState(Space, Table)), Seq(BlockState(A, B), BlockState(B, Table)))
+//  val solution2_2 = solverTwoBlocks.solve(Set(BlockState(A, B), BlockState(B, Table), BlockState(Space, A), BlockState(Space, Table)),Seq(BlockState(B, A)))
