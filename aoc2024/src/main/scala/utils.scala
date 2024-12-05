@@ -65,7 +65,7 @@ object Grid2D:
           val next: Seq[Vector[Point]] = directions.map(n => n +: p).toSeq
           seen += thisPoint
           directions.map(seen += _)
-          LazyList(next: _*)
+          LazyList(next*)
 
       def earlyExit: Vector[Point] => Boolean = (p: Vector[Point]) => targets.contains(p.head)
 

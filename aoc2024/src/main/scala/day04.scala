@@ -55,17 +55,3 @@ object day04 extends App:
   val locationA: IndexedSeq[Int] = input.zipWithIndex.filter(_._1 == 'A').map(_._2)
   private val answer2 = locationA.count(i => isXmas(i, grid, input))
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
-
-
-  val in = "abcdefghijklmnop"
-
-  val x = FlatGrid(in.length, 4)
-
-  println(x.getPrintableGrid(in))
-  println(x.rotateCounterClockWise.rotateClockWise.getPrintableGrid(in))
-
-
-
-
-
-
