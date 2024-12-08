@@ -1,4 +1,5 @@
-import aoc2024.FlatGrid
+import aoc2024.{BoundedGrid}
+import aoc2024.BoundedGrid.*
 import jdk.jshell.execution.Util
 
 import scala.io.*
@@ -14,81 +15,53 @@ object day06 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  private val input: String =
-    Source
-      .fromResource(s"$day.txt")
-      .getLines
-      .mkString
+  val grid = BoundedGrid.fromResource(s"$day.txt")
 
-  private val width: Int =
-    Source
-      .fromResource(s"day06.txt")
-      .getLines
-      .toSeq.head.length
+  case class S(direction: (Int, Int), cur: (Int, Int), seen: Set[(Int, Int)], been: Map[((Int, Int), (Int, Int)), Int]):
 
-  val grid = FlatGrid(input.length, width)
-
-  case class S(direction: Int, cur: Int, seen: Set[Int], been: Map[(Int, Int), Int]):
-
-    def oob: Boolean =
-      if direction == width then cur >= grid.gridLength
-      else if direction == -1 then grid.isLeftBound(cur)
-      else if direction == -width then cur < 0
-      else grid.isRightBound(cur - 1)
+    def oob(grid: BoundedGrid): Boolean = !grid.withinBounds(cur)
 
     def isLoop: Boolean =
       been.get(cur -> direction) match
         case None => false
         case Some(i) => i >= 2
 
-    def rotate: S = if direction == width then copy(direction = -1)
-      else if direction == -1 then copy(direction = -width)
-      else if direction == -width then copy(direction = 1)
-      else copy( direction = width)
-
-    def step(field: String): S =
+    def step(grid: BoundedGrid): S =
       val n = cur + direction
-      val o = field(n)
-      if o == '#' then rotate
+      val o = grid.grid(n._2)(n._1)
+      if o == '#' then S(direction.rotate, cur, seen, been)
       else
-        S(direction, cur + direction, seen + cur, been.updated(cur -> direction, been.getOrElse(cur -> direction, 0) + 1))
+        S(direction, n, seen + cur, been.updated(cur -> direction, been.getOrElse(cur -> direction, 0) + 1))
 
   @tailrec
-  def algorithm(state: S): S =
-    if state.oob then state
-    else
-      Try(state.step(input)).toOption match
-        case None => state.copy(seen = state.seen + state.cur)
-        case Some(her) => algorithm(her)
+  def algorithm(state: S, grid: BoundedGrid): S =
+    if !grid.withinBounds(state.cur + state.direction) then state.copy(seen = state.seen + state.cur)
+    else algorithm(state.step(grid), grid)
 
-  val p = input.indexWhere(_ == '^')
-  val s = S(-width, p, Set(p), Map((p -> -width) -> 1))
+  val p = grid.getPointsOf('^').head
+  val s = S((0, -1), p, Set(p), Map.empty)
 
-  private val answer1 = algorithm(s).seen.size
+  private val answer1 = algorithm(s, grid).seen.size
   println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
 
   @tailrec
-  def algorithm2(state: S, field: String): Boolean =
-    if state.oob then false
+  def algorithm2(state: S, grid: BoundedGrid): Boolean =
+    if !grid.withinBounds(state.cur + state.direction) then false
     else if state.isLoop then true
-    else
-      Try(state.step(field)).toOption match
-        case None => false
-        case Some(her) => algorithm2(her, field)
+    else algorithm2(state.step(grid), grid)
 
-  private val answer2 = input.indices
-    .foldLeft(0) {(res: Int, i: Int) =>
-      if input(i) == '#' then res
+  private val answer2 = grid.rows.flatten
+    .foldLeft(0) {(res: Int, i: (Int, Int)) =>
+      if grid.grid(i._2)(i._1) == '#' then res
       else if i == p then res
       else
-        val ni = input.updated(i, '#')
-        val r = algorithm2(s,ni)
+        val g = grid.patchOne(i, '#')
+        val r = algorithm2(s,g)
         if r then res + 1 else res
     }
-
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
 
 
