@@ -1,4 +1,4 @@
-package aoc2022
+package aoc2024
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
@@ -105,15 +105,93 @@ object Grid2D:
       val b: Int = p1.y - (delta * p1.x)
       Line(delta, b)
 
+
+case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
+
+  import BoundedGrid.*
+
+  def withinBounds(p: (Int, Int)): Boolean =
+    p._1 >= 0 && p._1 < xLim && p._2 >= 0 && p._2 < yLim
+
+  def rows: Seq[Seq[(Int, Int)]] =
+    def getRowAt(y: Int): Seq[(Int, Int)] = Range(0, xLim).map(x => x -> y)
+    Range(0, yLim).map(getRowAt)
+
+  def columns: Seq[Seq[(Int, Int)]] =
+    def getColAt(x: Int): Seq[(Int, Int)] = Range(0, yLim).map(y => x -> y)
+    Range(0, xLim).map(getColAt)
+
+  def transpose: BoundedGrid = BoundedGrid(yLim, xLim, grid.transpose)
+
+  def coefficient(p1: (Int, Int), p2: (Int, Int)): (Int, Int) =
+    val xd = p2._1 - p1._1
+    val yd = p2._2 - p1._2
+    (xd, yd)
+
+  def step(p: (Int, Int), coefficient: (Int, Int)): Option[(Int, Int)] =
+    val n = p + coefficient
+    Some(n).filter(withinBounds)
+
+  def stepNeighbour(p: (Int, Int), coefficient: (Int, Int)): Seq[(Int, Int)] =
+    Seq(p + coefficient, p - coefficient).filter(withinBounds)
+
+  @tailrec
+  private def lineForward(p: (Int, Int), coefficient: (Int, Int), acc: Seq[(Int, Int)] = Seq.empty): Seq[(Int, Int)] =
+    if !withinBounds(p) then acc
+    else lineForward(p + coefficient, coefficient, acc.appended(p))
+
+  def line(p: (Int, Int), coefficient: (Int, Int)): Seq[(Int, Int)] =
+    val f = lineForward(p, coefficient)
+    val b = lineForward(p - coefficient, coefficient.negate)
+    (f ++ b).sorted
+
+  def pointToIndex(p: (Int, Int)): Int = p._2 * xLim + p._1
+
+  def indexToPoint(i: Int): (Int, Int) = i /% xLim
+
+  def neighbours4(p: (Int, Int)): Seq[(Int, Int)] =
+    Seq(
+      (p._1, p._2 - 1),
+      (p._1 - 1, p._2),
+      (p._1 + 1, p._2),
+      (p._1, p._2 + 1)
+    ).filter(withinBounds)
+
+  def neighbours8(p: (Int, Int)): Seq[(Int, Int)] =
+    Seq(
+      (p._1, p._2 - 1),
+      (p._1 - 1, p._2),
+      (p._1 + 1, p._2),
+      (p._1, p._2 + 1),
+      (p._1 + 1, p._2 + 1),
+      (p._1 - 1, p._2 + 1),
+      (p._1 - 1, p._2 - 1),
+      (p._1 + 1, p._2 - 1),
+    ).filter(withinBounds)
+
+
+object BoundedGrid:
+  def fromString(input: String, width: Int): BoundedGrid =
+    BoundedGrid(width, input.length / width, input.grouped(width).map(_.toSeq).toSeq)
+
+  extension (p: (Int, Int))
+    def negate: (Int, Int) = (-p._1, -p._2)
+    def +(that: (Int, Int)): (Int, Int) = (p._1 + that._1, p._2 + that._2)
+    def -(that: (Int, Int)): (Int, Int) = (p._1 - that._1, p._2 - that._2)
+
 case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]):
   // todo: make everything a long at some point
   private val nRows: Int = gridLength / width
 
-  private def isLeftBound(i: Int): Boolean = i % width == 0
-  private def isRightBound(i: Int): Boolean = (i + 1) % width == 0
+  def isLeftBound(i: Int): Boolean = i % width == 0
+  def isRightBound(i: Int): Boolean = (i + 1) % width == 0
 
   private def checkValidGrid(grid: String): Unit =
     if grid.length != gridLength then sys.error(s"input grid is not of correct length [${grid.length} vs $gridLength]")
+    else ()
+
+  private def checkOnGrid(i: Int): Unit =
+    if i < 0 || i >= gridLength then sys.error(s"index [$i] is out of bounds of grid")
     else ()
 
   private def neighboursHorizontal(i: Int): Seq[Int] =
@@ -132,9 +210,9 @@ case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]
         .flatMap(neighboursHorizontal)
         .filter(pos => pos >= 0 && pos < gridLength && i != pos)
 
-  private def pointToIndex(p: (Int, Int), w: Int = width): Int = p._2 * w + p._1
+  def pointToIndex(p: (Int, Int), w: Int = width): Int = p._2 * w + p._1
 
-  private def indexToPoint(i: Int): (Int, Int) = i /% width // yields (y, x)
+  def indexToPoint(i: Int): (Int, Int) = i /% width // yields (y, x)
 
   def manhattan(i: Int, that: Int): Int =
     val (y1, x1) = indexToPoint(i)
@@ -232,8 +310,31 @@ case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]
     if slashRight.length != 3 || slashLeft.length != 3 then Seq.empty
     else Seq(slashRight, slashLeft)
 
+  def getLineIndices(i: Int, that: Int): Range =
+    checkOnGrid(i)
+    checkOnGrid(that)
+    val stepSize = math.abs(i - that)
+    val (y, x) = indexToPoint(i)
+    val (thaty, thatx) = indexToPoint(that)
+    val offsetX = math.abs(thatx - x)
+    val offsetY = math.abs(thaty - y)
+//    println(s"points: [$x, $y] vs. [$thatx, $thaty] for [$i, $that] and width=$width")
+    println(s"$stepSize and offsets $x [x=$offsetX, y=$offsetY]")
 
+    // before
+    val timesXStep = x / offsetX
+    val timesYStep = y / offsetY
 
+    println(s"before: $timesXStep $timesYStep")
+
+    // after
+    val afterXStep = (width - x) / offsetX
+    val afterYStep = (nRows - y) / offsetY
+
+    val start = i - timesXStep.min(timesYStep) * stepSize
+    val end = i + afterXStep.min(afterYStep) * stepSize
+
+    start to end by stepSize
 
 object Algorithms:
 
