@@ -3,6 +3,7 @@ package aoc2024
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 import scala.collection.mutable
+import scala.io.Source
 import scala.util.matching.Regex
 import scala.math.Integral.Implicits.*
 
@@ -10,6 +11,7 @@ import scala.math.Integral.Implicits.*
 object Grid2D:
 
   case class Point(x: Int, y: Int):
+
     def adjacent: Set[Point] =
       Set(
         Point(x, y - 1),
@@ -17,42 +19,6 @@ object Grid2D:
         Point(x + 1, y),
         Point(x, y + 1)
       )
-
-    def adjacentInclusive: Set[Point] =
-      Set(
-        Point(x, y - 1),
-        Point(x - 1, y),
-        Point(x + 1, y),
-        Point(x, y + 1),
-        Point(x, y)
-      )
-
-    def adjacentDown: Set[Point] = Set(Point(x, y + 1))
-
-    def adjacentSides(dir: String): Set[Point] = dir match
-      case "left"  => Set(Point(x - 1, y))
-      case "right" => Set(Point(x + 1, y))
-      case _       => sys.error("cannot find adjacentSides")
-
-
-    def toTuple: (Int, Int) = (this.x, this.y)
-
-    def +(p2: Point): Point = Point(x + p2.x, y + p2.y)
-
-    def -(p2: Point): Point = Point(x - p2.x, y - p2.y)
-
-    def <(t: Point): Boolean = this.x < t.x && this.y < t.y
-
-    def manhattan(that: Point): Int =
-      math.abs(this.x - that.x) + math.abs(this.y - that.y)
-
-
-    def smear(that: Point): Vector[Point] =
-      val sm: Vector[Point] = for {
-        xs <- Range(x.min(that.x), that.x.max(x) + 1).toVector
-        ys <- Range(y.min(that.y), that.y.max(y) + 1).toVector
-      } yield Point(xs, ys)
-      if sm.head == that then sm.reverse else sm
 
     def bfsSearch(targets: Vector[Point], obstacles: Vector[Point]): LazyList[Vector[Point]] =
       import Algorithms.bfs
@@ -65,24 +31,11 @@ object Grid2D:
           val next: Seq[Vector[Point]] = directions.map(n => n +: p).toSeq
           seen += thisPoint
           directions.map(seen += _)
-          LazyList(next*)
+          LazyList(next *)
 
       def earlyExit: Vector[Point] => Boolean = (p: Vector[Point]) => targets.contains(p.head)
 
       bfs(LazyList(Vector(this)))(search, earlyExit)
-
-  object Point:
-    def convertToFlatGrid[A](grid: Vector[Point], makeTo: Point => A): (Int, IndexedSeq[A]) =
-      val width: Int = grid.maxBy(_.x).x - grid.minBy(_.x).x + 1
-      val allPoints: Vector[Point] = Point(grid.minBy(_.x).x, grid.minBy(_.y).y)
-        .smear(Point(grid.maxBy(_.x).x, grid.maxBy(_.y).y))
-        .sortBy(_.toTuple.swap)
-      val flat: IndexedSeq[A] = allPoints.map(makeTo)
-      (width, flat)
-
-    def gridPrintable(grid: Vector[Point])(f: Point => Char): String =
-      val (width, flat) = convertToFlatGrid(grid, f)
-      flat.mkString("").grouped(width).map(_.reverse).mkString("\n").reverse
 
   case class Line(delta: Int, b: Int):
     val fx: Int => Int = (x: Int) => delta * x + b
@@ -113,15 +66,55 @@ case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
   def withinBounds(p: (Int, Int)): Boolean =
     p._1 >= 0 && p._1 < xLim && p._2 >= 0 && p._2 < yLim
 
-  def rows: Seq[Seq[(Int, Int)]] =
-    def getRowAt(y: Int): Seq[(Int, Int)] = Range(0, xLim).map(x => x -> y)
-    Range(0, yLim).map(getRowAt)
+  def patchOne(p: (Int, Int), r: Char): BoundedGrid =
+    val row: Seq[Char] = getRowAt(p._2).map(p => grid(p._2)(p._1))
+    val newGrid = grid.updated(p._2, row.updated(p._1, r))
+    copy(grid = newGrid)
 
-  def columns: Seq[Seq[(Int, Int)]] =
-    def getColAt(x: Int): Seq[(Int, Int)] = Range(0, yLim).map(y => x -> y)
-    Range(0, xLim).map(getColAt)
+  def getPointsOf(c: Char): Seq[(Int, Int)] =
+    for
+      x <- Range(0, xLim)
+      y <- Range(0, yLim)
+      if grid(y)(x) == c
+    yield x -> y
+
+  def smear(p1: (Int, Int), p2: (Int, Int)): Seq[(Int, Int)] =
+    for
+      xs <- Range(p1._1.min(p2._1), p1._1.max(p2._1))
+      ys <- Range(p1._2.min(p2._2), p1._2.max(p2._2))
+      if withinBounds(xs -> ys)
+    yield xs -> ys
+
+  private def getRowAt(y: Int): Seq[(Int, Int)] = Range(0, xLim).map(x => x -> y)
+
+  def rows: Seq[Seq[(Int, Int)]] = Range(0, yLim).map(getRowAt)
+
+  def rowValues: Seq[String] = rows.map(_.map(p => grid(p._2)(p._1)).mkString)
+
+  private def getColAt(x: Int): Seq[(Int, Int)] = Range(0, yLim).map(y => x -> y)
+
+  def columns: Seq[Seq[(Int, Int)]] = Range(0, xLim).map(getColAt)
+
+  def columnValues: Seq[String] = columns.map(_.map(p => grid(p._2)(p._1)).mkString)
+
+  def diagonals: Seq[Seq[(Int, Int)]] =
+    val firstRow = getRowAt(0)
+    val firstCol = getColAt(0)
+    val rightDiagonals = (firstRow ++ firstCol).distinct.map(p => lineForward(p, (1, 1)))
+
+    val lastCol = getColAt(xLim - 1)
+    val leftDiagonals = (firstRow ++ lastCol).distinct.map(p => lineForward(p, (-1, 1)))
+    rightDiagonals ++ leftDiagonals
+
+  def diagonalValues: Seq[String] = diagonals.map(_.map(p => grid(p._2)(p._1)).mkString)
 
   def transpose: BoundedGrid = BoundedGrid(yLim, xLim, grid.transpose)
+
+  def rotateClockWise: BoundedGrid = BoundedGrid(yLim, xLim, columns.map(_.map(p => grid(p._2)(p._1)).reverse))
+
+  def rotateCounterClockWise: BoundedGrid = BoundedGrid(yLim, xLim, columns.map(_.map(p => grid(p._2)(p._1))).reverse)
+
+  def printGrid: Unit = grid.foreach(s => println(s.mkString))
 
   def coefficient(p1: (Int, Int), p2: (Int, Int)): (Int, Int) =
     val xd = p2._1 - p1._1
@@ -134,6 +127,9 @@ case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
 
   def stepNeighbour(p: (Int, Int), coefficient: (Int, Int)): Seq[(Int, Int)] =
     Seq(p + coefficient, p - coefficient).filter(withinBounds)
+
+  def crossNeighbour(p: (Int, Int)): Seq[Seq[(Int, Int)]] =
+    Seq(stepNeighbour(p, (1, 1)).appended(p).sorted, stepNeighbour(p, (-1, 1)).appended(p).sorted)
 
   @tailrec
   private def lineForward(p: (Int, Int), coefficient: (Int, Int), acc: Seq[(Int, Int)] = Seq.empty): Seq[(Int, Int)] =
@@ -171,19 +167,30 @@ case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
 
 
 object BoundedGrid:
+
+  def fromResource(resource: String): BoundedGrid =
+    val s = Source
+      .fromResource(resource)
+    val v = s.getLines.toSeq
+    s.close()
+    BoundedGrid.fromString(v.mkString, v.head.length)
+
   def fromString(input: String, width: Int): BoundedGrid =
     BoundedGrid(width, input.length / width, input.grouped(width).map(_.toSeq).toSeq)
 
   extension (p: (Int, Int))
     def negate: (Int, Int) = (-p._1, -p._2)
+    def rotate: (Int, Int) = (-p._2, p._1)
     def +(that: (Int, Int)): (Int, Int) = (p._1 + that._1, p._2 + that._2)
     def -(that: (Int, Int)): (Int, Int) = (p._1 - that._1, p._2 - that._2)
+    def manhattan(that: (Int, Int)): Int = math.abs(p._1 - that._1) + math.abs(p._2 - that._2)
 
 case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]):
   // todo: make everything a long at some point
   private val nRows: Int = gridLength / width
 
   def isLeftBound(i: Int): Boolean = i % width == 0
+
   def isRightBound(i: Int): Boolean = (i + 1) % width == 0
 
   private def checkValidGrid(grid: String): Unit =
@@ -206,9 +213,9 @@ case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]
       .filter((pos: Int) => pos >= 0 && pos < gridLength && pos != i)
 
   def neighbours8(i: Int): Seq[Int] =
-      neighboursVertical(i)
-        .flatMap(neighboursHorizontal)
-        .filter(pos => pos >= 0 && pos < gridLength && i != pos)
+    neighboursVertical(i)
+      .flatMap(neighboursHorizontal)
+      .filter(pos => pos >= 0 && pos < gridLength && i != pos)
 
   def pointToIndex(p: (Int, Int), w: Int = width): Int = p._2 * w + p._1
 
@@ -229,12 +236,14 @@ case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]
     def adjust(i: Int): Int =
       val (y, x) = indexToPoint(i)
       width * (x + 1) - (y + 1)
+
     FlatGrid(gridLength, nRows, adj.andThen(adjust))
 
   def rotateCounterClockWise: FlatGrid =
     def adjust(i: Int): Int =
       val (y, x) = indexToPoint(i)
       width * (width - x) - (width - y)
+
     FlatGrid(gridLength, nRows, adj.andThen(adjust))
 
   def rows: Seq[Range] = Range(0, gridLength, width).map(getRowIndicesAt)
@@ -318,7 +327,7 @@ case class FlatGrid(gridLength: Int, width: Int, adj: Int => Int = identity[Int]
     val (thaty, thatx) = indexToPoint(that)
     val offsetX = math.abs(thatx - x)
     val offsetY = math.abs(thaty - y)
-//    println(s"points: [$x, $y] vs. [$thatx, $thaty] for [$i, $that] and width=$width")
+    //    println(s"points: [$x, $y] vs. [$thatx, $thaty] for [$i, $that] and width=$width")
     println(s"$stepSize and offsets $x [x=$offsetX, y=$offsetY]")
 
     // before
@@ -358,7 +367,7 @@ object Algorithms:
     @tailrec
     def go(current: A, step: Int): A =
       val curScore: Int = f(current, as)
-      val next: Vector[A] = ???  // neighbours to current
+      val next: Vector[A] = ??? // neighbours to current
       val scores: Vector[(A, Int)] = next.map((a: A) => (a, f(a, as)))
       val cont: Vector[(A, Int)] = scores.filter(_._2 > curScore)
       if cont.isEmpty && step == 1 then current
@@ -376,8 +385,8 @@ object Algorithms:
       if active.isEmpty then res
       else
         val (node, rem): (N, Queue[N]) = active.dequeue
-        val neighbours: Set[N] = g(node).filter((n: N) => !res(n))  // node should not have been seen before
-        val nextQueue: Queue[N] = rem.enqueueAll(neighbours)        // add all next nodes to queue
+        val neighbours: Set[N] = g(node).filter((n: N) => !res(n)) // node should not have been seen before
+        val nextQueue: Queue[N] = rem.enqueueAll(neighbours) // add all next nodes to queue
         go(res ++ neighbours, nextQueue)
 
     go(Set.empty[N], Queue(source))
@@ -400,12 +409,12 @@ object Algorithms:
       def go(res: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
         if active.isEmpty then (res, pred)
         else
-          val node: N = active.dequeue._1  // select the next node with lowest distance thus far
+          val node: N = active.dequeue._1 // select the next node with lowest distance thus far
           val cost: Int = res(node)
           val neighbours: Map[N, Int] = for {
             (n, c) <- g(node) if cost + c < res.getOrElse(n, Int.MaxValue)
-          } yield n -> (cost + c)          // update distances
-          neighbours.foreach((n: (N, Int)) => active.enqueue(n))  // add next nodes to active nodes
+          } yield n -> (cost + c) // update distances
+          neighbours.foreach((n: (N, Int)) => active.enqueue(n)) // add next nodes to active nodes
           val preds: Map[N, N] = neighbours.map((f: (N, Int)) => (f._1, node))
           go(res ++ neighbours, pred ++ preds)
 
@@ -419,15 +428,15 @@ object Algorithms:
       @tailrec
       def go(gScore: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
         val node: N = active.dequeue
-        if node == target then (gScore, pred)  // select the next node with lowest fScore thus far
+        if node == target then (gScore, pred) // select the next node with lowest fScore thus far
         else
           val cost: Int = gScore(node)
           val neighbours: Map[N, Int] = for {
             (n, d) <- graph(node) if cost + d < gScore.getOrElse(n, Int.MaxValue)
-          } yield n -> (cost + d)  // update distances
+          } yield n -> (cost + d) // update distances
           val preds: Map[N, N] = neighbours.map((f: (N, Int)) => (f._1, node))
-          neighbours.foreach((n: N, s: Int) => fScore.addOne(n -> (s + h(n))))  // update for new fScores
-          neighbours.foreach((n: N, _: Int) => active.enqueue(n))  // add next nodes to active nodes
+          neighbours.foreach((n: N, s: Int) => fScore.addOne(n -> (s + h(n)))) // update for new fScores
+          neighbours.foreach((n: N, _: Int) => active.enqueue(n)) // add next nodes to active nodes
           go(gScore ++ neighbours, pred ++ preds)
 
       go(Map(source -> 0), Map.empty[N, N])
@@ -461,8 +470,9 @@ object Algorithms:
 
       @tailrec
       def go(xx: N, acc: List[N]): List[N] = f(xx) match
-        case None    => xx :: acc
+        case None => xx :: acc
         case Some(v) => go(v, xx :: acc)
+
       go(x, List.empty[N])
 
   end GraphTraversal
@@ -514,14 +524,16 @@ object Algorithms:
 object SequenceUtils:
 
   extension [A](seq: Seq[A])
-    def identityMap: Map[A, Int] = seq.foldLeft(Map.empty) { (res, c) => res.get(c) match
-      case None => res.updated(c, 1)
-      case Some(v) => res.updated(c, v + 1)
+    def identityMap: Map[A, Int] = seq.foldLeft(Map.empty) { (res, c) =>
+      res.get(c) match
+        case None => res.updated(c, 1)
+        case Some(v) => res.updated(c, v + 1)
     }
 
   case class CircularQueue[A](start: Seq[A]):
 
     private val mq: scala.collection.mutable.Queue[A] = scala.collection.mutable.Queue.from(start)
+
     def dequeue: A =
       if mq.isEmpty then
         mq.enqueueAll(start)
@@ -535,6 +547,7 @@ object VectorUtils:
     def *(i: Int): Vector[Int] = c.map((v: Int) => v * i)
     def >=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v >= that(i))
     def <=(that: Vector[Int]): Boolean = c.zipWithIndex.forall((v: Int, i: Int) => v <= that(i))
+
   def dropWhileFun[A](as: Vector[A])(f: (A, A) => Boolean): Vector[A] =
     def go(ass: Vector[A], acc: Vector[A] = Vector.empty, n: Int = 0): Vector[A] =
       if n + 1 == as.length then as(n) +: acc
@@ -572,8 +585,6 @@ object VectorUtils:
         val todo: Vector[(A, Double)] = v.zipWithIndex.map(x => (x._1, x._2.toDouble))
         val next: Vector[(A, Double)] = todo.filterNot(_._2 == i)
         CircleVector(size, ((v(i), dir + 0.1) +: next).sortBy(_._2).map(_._1))
-
-
 
 
 object CycleFinder:
@@ -634,7 +645,7 @@ object GameTree:
   object DecisionTree:
 
     def treeToList[A](dt: DecisionTree[A]): List[A] = dt match
-      case Result(v)    => List(v)
+      case Result(v) => List(v)
       case Decision(vs) => vs.flatMap((d: DecisionTree[A]) => treeToList(d))
 
     def pure[A](a: A): DecisionTree[A] = Result(a)
@@ -645,7 +656,9 @@ object GameTree:
 
 
 object NumberTheory:
+
   import math.Integral.Implicits.*
+
   def toBinary(in: Int, acc: String = ""): String =
     val (div, rem) = in /% 2
     val bin: Char = "01"(rem)
@@ -682,7 +695,7 @@ object RangeUtil:
         Vector(before, after).flatten ++ between
 
     def overlappingRanges(those: Vector[R]): Vector[(R, Boolean)] =
-      val hits: Vector[R] = those.flatMap{ (that: R) => overlap(that) }
+      val hits: Vector[R] = those.flatMap { (that: R) => overlap(that) }
       val noHits: Vector[R] = filter(hits)
       hits.map(r => (r, true)) ++ noHits.map(r => (r, false))
 
@@ -690,4 +703,5 @@ object Optim:
   case class Memoize[I, O](f: I => O):
 
     val cache: mutable.Map[I, O] = new mutable.HashMap[I, O]
+
     def getMemoizedf: I => O = (in: I) => cache.getOrElseUpdate(in, f(in))
