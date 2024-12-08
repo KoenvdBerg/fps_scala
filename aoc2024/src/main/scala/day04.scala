@@ -5,7 +5,7 @@ import math.*
 import scala.annotation.tailrec
 import scala.util.matching.Regex
 
-import aoc2022.FlatGrid
+import aoc2024.FlatGrid
 
 object day04 extends App:
 
