@@ -7,7 +7,7 @@ import scala.annotation.tailrec
 import scala.util.matching.Regex
 import aoc2024.BoundedGrid
 
-object day00 extends App:
+object day08 extends App:
 
   private val day: String =
     this.getClass.getName.drop(3).init
