@@ -116,6 +116,13 @@ case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
 
   def printGrid: Unit = grid.foreach(s => println(s.mkString))
 
+  def createGrid(points: Seq[(Int, Int)]): BoundedGrid =
+    val s = for
+      x <- Range(0, xLim)
+      y <- Range(0, yLim)
+    yield if points.contains(x -> y) then '#' else '.'
+    copy(grid = s.grouped(xLim).toSeq)
+
   def coefficient(p1: (Int, Int), p2: (Int, Int)): (Int, Int) =
     val xd = p2._1 - p1._1
     val yd = p2._2 - p1._2
@@ -153,6 +160,14 @@ case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
       (p._1, p._2 + 1)
     ).filter(withinBounds)
 
+  def neighbours4Unbounded(p: (Int, Int)): Seq[(Int, Int)] =
+    Seq(
+      (p._1, p._2 - 1),
+      (p._1 - 1, p._2),
+      (p._1 + 1, p._2),
+      (p._1, p._2 + 1)
+    )
+
   def neighbours8(p: (Int, Int)): Seq[(Int, Int)] =
     Seq(
       (p._1, p._2 - 1),
@@ -165,6 +180,40 @@ case class BoundedGrid(xLim: Int, yLim: Int, grid: Seq[Seq[Char]]):
       (p._1 + 1, p._2 - 1),
     ).filter(withinBounds)
 
+  def get(p: (Int, Int)): Char = grid(p._2)(p._1)
+
+  def neighbourAbove(p: (Int, Int)): (Int, Int) = (p._1, p._2 - 1)
+  def neighbourBelow(p: (Int, Int)): (Int, Int) = (p._1, p._2 + 1)
+  def neighbourRight(p: (Int, Int)): (Int, Int) = (p._1 + 1, p._2)
+  def neighbourLeft(p: (Int, Int)): (Int, Int) = (p._1 - 1, p._2)
+
+  def wrapMove(p: (Int, Int), v: (Int, Int), time: Int): (Int, Int) =
+    val (x, y) = p + v * time
+    val modX = x % xLim
+    val modY = y % yLim
+    val nx = if modX < 0 then modX + xLim else modX
+    val ny = if modY < 0 then modY + yLim else modY
+    nx -> ny
+
+  /**
+   * grid
+   * ...
+   * ...
+   * ...
+   * becomes
+   * . .
+   *
+   * . .
+   */
+  def classifyQuadrant(p: (Int, Int)): Int =
+    val middleX = xLim / 2
+    val middleY = yLim / 2
+    val (x, y) = p
+    if x < middleX && y < middleY then 1
+    else if x > middleX  && y < middleY then 2
+    else if x < middleX && y > middleY then 3
+    else if x > middleX && y > middleY then 4
+    else -1
 
 object BoundedGrid:
 
@@ -182,6 +231,7 @@ object BoundedGrid:
     def negate: (Int, Int) = (-p._1, -p._2)
     def rotate: (Int, Int) = (-p._2, p._1)
     def +(that: (Int, Int)): (Int, Int) = (p._1 + that._1, p._2 + that._2)
+    def *(that: Int): (Int, Int) = (p._1 * that, p._2 * that)
     def -(that: (Int, Int)): (Int, Int) = (p._1 - that._1, p._2 - that._2)
     def manhattan(that: (Int, Int)): Int = math.abs(p._1 - that._1) + math.abs(p._2 - that._2)
 
@@ -524,10 +574,10 @@ object Algorithms:
 object SequenceUtils:
 
   extension [A](seq: Seq[A])
-    def identityMap: Map[A, Int] = seq.foldLeft(Map.empty) { (res, c) =>
+    def identityMap: Map[A, Long] = seq.foldLeft(Map.empty) { (res, c) =>
       res.get(c) match
-        case None => res.updated(c, 1)
-        case Some(v) => res.updated(c, v + 1)
+        case None => res.updated(c, 1L)
+        case Some(v) => res.updated(c, v + 1L)
     }
 
   case class CircularQueue[A](start: Seq[A]):
