@@ -230,6 +230,7 @@ object BoundedGrid:
   extension (p: (Int, Int))
     def negate: (Int, Int) = (-p._1, -p._2)
     def rotate: (Int, Int) = (-p._2, p._1)
+    def rotateI: (Int, Int) = (p._2, -p._1)
     def +(that: (Int, Int)): (Int, Int) = (p._1 + that._1, p._2 + that._2)
     def *(that: Int): (Int, Int) = (p._1 * that, p._2 * that)
     def -(that: (Int, Int)): (Int, Int) = (p._1 - that._1, p._2 - that._2)
