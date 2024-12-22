@@ -772,7 +772,7 @@ object RangeUtil:
       hits.map(r => (r, true)) ++ noHits.map(r => (r, false))
 
 object Optim:
-  case class Memoize[I, O](f: I => O):
+  case class Memoize[I, O](private val f: I => O):
 
     val cache: mutable.Map[I, O] = new mutable.HashMap[I, O]
 

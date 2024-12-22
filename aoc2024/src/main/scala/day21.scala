@@ -129,25 +129,8 @@ object day00 extends App:
   private val start2: Long =
     System.currentTimeMillis
 
-
-//  def typeNumberControl(start: (Int, Int), directionSequence: String): Seq[String] =
-//
-//    @tailrec
-//    def go(s: (Int, Int), sequence: String, acc: Seq[String]): Seq[String] =
-//      if sequence.isEmpty then acc
-//      else
-//        val end = control.getPointsOf(sequence.head).head
-//        val r = navigateKeypad(s, end, control)
-//        val nextAcc =
-//          for
-//            cur <- acc
-//            rr <- r
-//          yield cur ++ rr
-//        go(end, sequence.drop(1), nextAcc)
-//
-//    go(start, directionSequence, Seq(""))
-
-  val memoizef = Memoize[(String, Int), Long](controlNumber).f
+  val mem = Memoize[(String, Int), Long](controlNumber)
+  val memoizef = mem.getMemoizedf
 
   val maxRobot = 2
   def controlNumber(in: String, r: Int): Long =
@@ -157,20 +140,13 @@ object day00 extends App:
       val iA = in.indexOf('A')
       val cur = in.take(iA + 1)
       val rem = in.drop(iA + 1)
-      val next = typeNumberControl(controlA, cur).maxBy(heuristic)
+      val next = typeNumberControl(controlA, cur).maxBy(s => heuristic(s) - s.length)
 //      println(s"$cur --> $next")
-      memoizef(rem, r) + memoizef(next, r + 1)
-  //      next.map(ns => memoizef(ns, r + 1)).sum + memoizef(rem, r)
+      memoizef(next, r + 1) + memoizef(rem, r)
 
-//      next.flatMap(ns => controlNumber(ns, r + 1)) + controlNumber(rem, r)
-
-
-
-
-
-
-  val res2 = controlNumber("<A^A^>^AvvvA", 0)
+  val res2 = memoizef("<A^A^>^AvvvA", 0)
   println(res2)
+//  println(mem.cache)
 
   private val answer2 = ""
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
