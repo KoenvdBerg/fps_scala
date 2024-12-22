@@ -526,6 +526,27 @@ object Algorithms:
 
       go(x, List.empty[N])
 
+
+    def dijkstraMultipleStarts[N](g: Graph[N])(source: Seq[N]): (Map[N, Int], Map[N, N]) =
+
+      val start = source.map(_ -> 0)
+      // unfortunately there isn't an immutable priority queue, so we've to use the mutable one.
+      val active: mutable.PriorityQueue[(N, Int)] = mutable.PriorityQueue.from(start)(Ordering.by((f: (N, Int)) => f._2).reverse)
+
+      def go(res: Map[N, Int], pred: Map[N, N]): (Map[N, Int], Map[N, N]) =
+        if active.isEmpty then (res, pred)
+        else
+          val node: N = active.dequeue._1 // select the next node with lowest distance thus far
+          val cost: Int = res(node)
+          val neighbours: Map[N, Int] = for {
+            (n, c) <- g(node) if cost + c < res.getOrElse(n, Int.MaxValue)
+          } yield n -> (cost + c) // update distances
+          neighbours.foreach((n: (N, Int)) => active.enqueue(n)) // add next nodes to active nodes
+          val preds: Map[N, N] = neighbours.map((f: (N, Int)) => (f._1, node))
+          go(res ++ neighbours, pred ++ preds)
+
+      go(Map.from(start), Map.empty[N, N])
+
   end GraphTraversal
 
   class LabelPropagationAlgorithm[N](graph: Map[N, List[N]], maxIterations: Int, rngCorrection: Int):
