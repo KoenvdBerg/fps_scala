@@ -10,7 +10,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.matching.Regex
 
-object day00 extends App:
+object day21 extends App:
 
   private val day: String = "21"
 
@@ -27,7 +27,6 @@ object day00 extends App:
   val keypadA = (2,3)
   val control = BoundedGrid.fromString("#^A<v>", 3)
   val controlA = (2,0)
-  val sample = codes.head
 
   def createMovement(route: Seq[(Int, Int)]): String =
     if route.length <= 1 then "A"
@@ -42,9 +41,6 @@ object day00 extends App:
           case (0, 1) => 'v'
           case (0, -1) => '^'
       ).mkString + "A"
-
-  val cache: mutable.Map[((Int, Int), (Int, Int), BoundedGrid), Seq[String]] = new mutable.HashMap()
-//  def memoizeNavigate: (((Int, Int), (Int, Int), BoundedGrid)) => Seq[String] = Memoize[((Int, Int), (Int, Int), BoundedGrid), Seq[String]](navigateKeypad).f
 
   def navigateKeypad(start: (Int, Int), end: (Int, Int), grid: BoundedGrid): Seq[String]  =
 
@@ -65,88 +61,48 @@ object day00 extends App:
           n.foreach(nn => q.enqueue(cur.appended(nn)))
           go(acc)
 
-    cache.getOrElseUpdate((start, end, grid), go(Seq.empty).map(createMovement))
+    go(Seq.empty).map(createMovement)
 
-  def typeNumber(start: (Int, Int), number: String): Seq[String] =
+  def typeSomething(start: (Int, Int), number: String, pad: BoundedGrid): Seq[String] =
 
     @tailrec
     def go(s: (Int, Int), sequence: String, acc: Seq[String]): Seq[String] =
       if sequence.isEmpty then acc
       else
-        val end = keypad.getPointsOf(sequence.head).head
-        val r: Seq[String] = navigateKeypad(s, end, keypad)
-
+        val end = pad.getPointsOf(sequence.head).head
+        val r: Seq[String] = navigateKeypad(s, end, pad)
         val nextAcc =
           for
             cur <- acc
             rr <- r
           yield cur ++ rr
-
         go(end, sequence.drop(1), nextAcc)
 
     go(start, number, Seq(""))
 
-  def typeNumberControl(start: (Int, Int), directionSequence: String): Seq[String] =
+  case class Solver(maxRobot: Int):
+    private val mem = Memoize[(String, Int), Long](controlNumber)
+    private val memoizef = mem.getMemoizedf
 
-    @tailrec
-    def go(s: (Int, Int), sequence: String, acc: Seq[String]): Seq[String] =
-      if sequence.isEmpty then acc
+    def controlNumber(in: String, r: Int): Long =
+      if r >= maxRobot then in.length.toLong
+      else if in.isEmpty then 0L
       else
-        val end = control.getPointsOf(sequence.head).head
-        val r = navigateKeypad(s, end, control)
-        val nextAcc =
-          for
-            cur <- acc
-            rr <- r
-          yield cur ++ rr
-        go(end, sequence.drop(1), nextAcc)
+        val iA = in.indexOf('A')
+        val cur = in.take(iA + 1)
+        val rem = in.drop(iA + 1)
+        val next = typeSomething(controlA, cur, control)
+        memoizef(rem, r) + memoizef(next.minBy(ss => memoizef(ss, r + 1)), r + 1)
 
-    go(start, directionSequence, Seq(""))
+    def solve(code: String): Long =
+      val codeDirs = typeSomething(keypadA, code, keypad)
+      codeDirs.map(cc => memoizef(cc, 0)).min * code.filter(_.isDigit).toLong
 
-  def scoreCode(code: String): Long =
-    val sequence = resolve(code)
-    code.filter(_.isDigit).toLong * sequence.length
-
-  def heuristic(sequence: String): Int =
-    sequence.sliding(2).map(s =>
-      val c1 = s.head
-      val c2 = s.last
-      if c1 == c2 then 1 else 0
-    ).sum
-
-  def resolve(code: String): String =
-    val s1 = typeNumber(keypadA, code)
-    val ts2 = s1.flatMap(seq => typeNumberControl(controlA, seq))
-    val ls2 = ts2.maxBy(heuristic).length
-    val s2 = ts2.filter(_.length == ls2)
-
-    val s3 = s2.flatMap(seq => typeNumberControl(controlA, seq))
-    s3.minBy(_.length)
-
-//  private val answer1 = codes.map(scoreCode).sum
-//  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
+  private val answer1 = codes.map(s => Solver(2).solve(s)).sum
+  println(s"Answer day $day part 1: ${answer1} [${System.currentTimeMillis - start1}ms]")
 
   private val start2: Long =
     System.currentTimeMillis
 
-  val mem = Memoize[(String, Int), Long](controlNumber)
-  val memoizef = mem.getMemoizedf
-
-  val maxRobot = 2
-  def controlNumber(in: String, r: Int): Long =
-    if r >= maxRobot then in.length.toLong
-    else if in.isEmpty then 0L
-    else
-      val iA = in.indexOf('A')
-      val cur = in.take(iA + 1)
-      val rem = in.drop(iA + 1)
-      val next = typeNumberControl(controlA, cur).maxBy(s => heuristic(s) - s.length)
-//      println(s"$cur --> $next")
-      memoizef(next, r + 1) + memoizef(rem, r)
-
-  val res2 = memoizef("<A^A^>^AvvvA", 0)
-  println(res2)
-//  println(mem.cache)
-
-  private val answer2 = ""
+  private val answer2 = codes.map(c => Solver(25).solve(c)).sum
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
