@@ -731,11 +731,21 @@ object NumberTheory:
 
   import math.Integral.Implicits.*
 
-  def toBinary(in: Int, acc: String = ""): String =
+  def toBinary(in: Long, acc: String = ""): String =
     val (div, rem) = in /% 2
-    val bin: Char = "01"(rem)
+    val bin: Char = "01"(rem.toInt)
     if div == 0 then (acc + bin).reverse else toBinary(div, acc + bin)
 
+//  def toBinaryLong(in: Long, acc: String = ""): String =
+//    val rem = in % 2
+//    val div = in / 2
+//    val bin: Char = "01"(rem.toInt)
+//    if div == 0 then (acc + bin).reverse else toBinaryLong(div, acc + bin)
+
+
+  def binaryToLong(binary: String, acc: Long = 0L, pow: Long = 1): Long =
+    if binary.isEmpty then acc
+    else binaryToLong(binary.dropRight(1), acc + binary.last.toString.toLong * pow, pow * 2)
 
 object RangeUtil:
 
