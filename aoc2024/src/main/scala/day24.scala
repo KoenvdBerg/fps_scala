@@ -5,6 +5,8 @@ import math.*
 import scala.annotation.tailrec
 import scala.util.matching.Regex
 import aoc2024.NumberTheory.{binaryToLong, toBinary}
+import aoc2024.SequenceUtils.identityMap
+import aoc2024.Optim.Memoize
 
 object day00 extends App:
 
@@ -13,7 +15,9 @@ object day00 extends App:
   private val start1: Long =
     System.currentTimeMillis
 
-  case class Op(n1: String, n2: String, z: String, op: String)
+  case class Op(n1: String, n2: String, z: String, op: String):
+
+    def swap(newz: String): Op = copy(z = newz)
 
   def parseVal(s: String): (String, Int) = s match
     case s"$x: $i" => x -> i.toInt
@@ -81,21 +85,84 @@ object day00 extends App:
 
   val x = binaryToLong(binary2(input._1, "x"))
   val y = binaryToLong(binary2(input._1, "y"))
-  val z = toBinary(x + y)  // NOTE: this is the expected value
+  val z = toBinary(x + y) // NOTE: this is the expected value
   val wiresToBacktrack = z.reverse.zipWithIndex.map((c, i) => s"z%02d".format(i) -> s"$c".toInt)
 
+  private val ops = input._2
+  def createGraphInput(wire: String): Seq[(String, String)] =
+    val nextOps = ops
+      .filter(_.z == wire)
+      .flatMap(op => Seq(op.n1 -> wire, op.n2 -> wire))
+    val complete = nextOps.filter((w, _) => w.startsWith("x") || w.startsWith("y"))
+    val next = nextOps.filterNot((w, _) => w.startsWith("x") || w.startsWith("y"))
+    complete ++ next ++ next.flatMap((nextWire, _) => createGraphInput(nextWire))
 
-  println(wiresToBacktrack)
-  println(z)
+  val res2 = wiresToBacktrack.flatMap((w, _) => createGraphInput(w)).distinct
+  res2.foreach((n1, n2) =>
+    println(s"${n1} -> ${n2};")
+  )
+  def solutionSwapped(known: Map[String, Int], ops: Seq[Op], z1: String, z2: String) =
+    val i1 = ops.indexWhere(_.z == z1)
+    val op1 = ops(i1)
+    val i2 = ops.indexWhere(_.z == z2)
+    val op2 = ops(i2)
+    val res = algorithm(known, ops.patch(i1, Seq(op1.swap(z2)), 1).patch(i2, Seq(op2.swap(z1)), 1))
+    binary(res, "z")
+
+  // https://dreampuf.github.io/GraphvizOnline/?engine=dot
   println(binary1)
+  println(z)
+  println(solutionSwapped(input._1, ops, "jnt", "vkd"))
 
-  // todo: backtrack from the known z (what it should be) using reverted logic:
-  //  AND if z == 1 then both should be 1
-  //  OR if z == 0 then both should be 0
-  //  XOR if z == 1 then different else same values
+  println(ops
+    .filter(_.z.startsWith("z"))
+    .filter(_.op != "XOR")
+  )
+  // z11, z06, z35, fhc, ggt, hqk, mwh, qhj
 
-
-  private val answer2 = ""
+  private val answer2 = "z11, z06, z35, fhc, ggt, hqk, mwh, qhj".split(",").toSeq.map(_.trim).sorted.mkString(",")
   println(s"Answer day $day part 2: ${answer2} [${System.currentTimeMillis - start2}ms]")
 
-
+//val memf: ((String, Int, Int)) => Boolean = Memoize[(String, Int, Int), Boolean](backtrackWire).getMemoizedf
+//val known = input._1
+//val found = scala.collection.mutable.ListBuffer.empty[(String, Int, Int)]
+//def backtrackWire(wire: String, wireValue: Int, depth: Int): Boolean =
+//  if wire.startsWith("x") || wire.startsWith("y") then known(wire) == wireValue
+//  else
+//    val relevantOp: Seq[Seq[(String, Int)]] = ops.filter(_.z == wire)
+//      .flatMap { op =>
+//        (op.op, wireValue) match
+//          case ("AND", 1) => Seq(
+//            Seq(op.n1 -> 1, op.n2 -> 1)
+//          )
+//          case ("AND", 0) => Seq(
+//            Seq(op.n1 -> 1, op.n2 -> 0),
+//            Seq(op.n1 -> 0, op.n2 -> 1),
+//            Seq(op.n1 -> 0, op.n2 -> 0)
+//          )
+//          case ("OR", 1) => Seq(
+//            Seq(op.n1 -> 1, op.n2 -> 0),
+//            Seq(op.n1 -> 0, op.n2 -> 1),
+//            Seq(op.n1 -> 1, op.n2 -> 1)
+//          )
+//          case ("OR", 0) => Seq(
+//            Seq(op.n1 -> 0, op.n2 -> 0)
+//          )
+//          case ("XOR", 1) => Seq(
+//            Seq(op.n1 -> 0, op.n2 -> 1),
+//            Seq(op.n1 -> 1, op.n2 -> 0)
+//          )
+//          case ("XOR", 0) => Seq(
+//            Seq(op.n1 -> 0, op.n2 -> 0),
+//            Seq(op.n1 -> 1, op.n2 -> 1)
+//          )
+//      }
+//    val okay: Boolean = relevantOp.exists(r => r.forall((nw, wv) => memf(nw, wv, depth + 1)))
+//    if !okay then
+//      val tryThis = memf(wire, if wireValue == 1 then 0 else 1, depth + 1)
+//      if tryThis then
+//        found.append((wire, wireValue, depth))
+//      true
+//    //          tryThis
+//    //        else tryThis
+//    else okay
